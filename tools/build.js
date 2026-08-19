@@ -40,6 +40,7 @@ async function main() {
     .replace('<script type="module" src="./src/main.js"></script>', `<script>\n${escapeForScript(js).trim()}\n</script>`);
 
   if (html.includes('dev-guard')) throw new Error('build left the development-only guard in');
+  if (html.includes('./src/main.js')) throw new Error('build left the development entry point in');
   if (html.includes('src="./src/')) throw new Error('build left an external reference behind');
   if (/<link[^>]+href=|<script[^>]+src=/i.test(html)) throw new Error('build left an external asset behind');
 

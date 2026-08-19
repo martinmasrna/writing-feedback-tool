@@ -96,7 +96,9 @@ Typing must be driven with **real** key events. Synthetic `KeyboardEvent`s do no
 
 **Bind shortcuts on `e.code`, not `e.key`.** With Shift held the 8 key reports `*` and the 7 key `&` on a US layout, and Alt produces dead keys and symbols on most layouts. A shortcut matched on `e.key` can pass an automated test that sends the digit and still never fire for a real person.
 
-**Chrome caches ES modules across reloads.** After editing `src/`, a plain reload can leave the page running a mix of old and new modules, which surfaces as baffling errors like `blocks is not iterable`. Reload with a query string (`/index.html?v=<now>`) when results stop making sense.
+**A plain browser refresh is enough after editing `src/`** — the dev server sends `Cache-Control: no-store` and this is verified, deep modules included. Restart `npm run dev` only when you change the server itself.
+
+**But `import()` from the console reuses the page's module map**, which lives as long as the document. Probing a module you just edited returns the *old* instance, which surfaces as baffling errors like `blocks is not iterable` from code that looks correct on disk. Reload before probing, and never conclude the app is broken from a console import alone.
 
 Two things will freeze an automated session: the native `confirm()` on dropping a file while there are unsaved changes, and the `beforeunload` guard on navigating away. Save or undo to a clean state first.
 

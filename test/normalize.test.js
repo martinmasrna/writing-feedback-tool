@@ -90,3 +90,51 @@ test('repeated passes settle rather than loop', () => {
   const r = run('{++ab++}{--abc--}{++c++}');
   assert.equal(transform(r.text, 'accepted'), transform('{++ab++}{--abc--}{++c++}', 'accepted'));
 });
+
+/* --- runs, not just neighbouring pairs ------------------------------------ */
+
+test('cancelling edits separated by another edit still cancel', () => {
+  // Retyped "ry", added a paragraph break, then removed the old "ry" and the
+  // old break. Four annotations whose net effect is nothing at all.
+  const text = '## Summa{++ry++}{++\n\n++}{--ry--}{--\n\n--}This document';
+  const r = run(text);
+  assert.equal(r.text, '## Summary\n\nThis document');
+});
+
+test('a run that does change something keeps only the difference', () => {
+  const text = 'a {++new++}{++ text++}{--old--} b';
+  const r = run(text);
+  assert.equal(transform(r.text, 'accepted'), 'a new text b');
+  assert.equal(transform(r.text, 'rejected'), 'a old b');
+});
+
+test('a run is not collapsed across ordinary text', () => {
+  const text = 'a {++x++} plain {--x--} b';
+  assert.equal(run(text).text, text, 'these are two separate edits');
+});
+
+test('a highlight interrupts a run rather than dissolving into it', () => {
+  const text = '{++x++}{==kept==}{--x--}';
+  assert.equal(run(text).text, text);
+});
+
+test('an explained edit protects its whole run', () => {
+  const text = '{++ry++}{++\n\n++}{--ry--}{>>deliberate<<}{--\n\n--}';
+  const r = run(text);
+  assert.ok(r.text.includes('{>>deliberate<<}'), 'the reason survives');
+});
+
+test('runs never change what the document means', () => {
+  const cases = [
+    '## Summa{++ry++}{++\n\n++}{--ry--}{--\n\n--}This document',
+    'a {++new++}{++ text++}{--old--} b',
+    'a {++x++} plain {--x--} b',
+    '{++x++}{==kept==}{--x--}',
+    'x {~~one~>two~~}{++ three++} y',
+  ];
+  for (const text of cases) {
+    const r = run(text);
+    assert.equal(transform(r.text, 'accepted'), transform(text, 'accepted'), `accepted: ${text}`);
+    assert.equal(transform(r.text, 'rejected'), transform(text, 'rejected'), `rejected: ${text}`);
+  }
+});

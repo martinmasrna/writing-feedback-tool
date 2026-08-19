@@ -62,7 +62,11 @@ Structure is parsed here rather than by a markdown library for one decisive reas
 
 **Caret movement across markup is ours to drive, not the browser's.** Struck text and comment chips are `contenteditable="false"`, and Chrome will neither put the caret inside them *nor step over them* — an arrow press beside a deletion does nothing at all, and the next keystroke lands wherever the caret was stuck. `stepCaret()` in `edits.js` moves it: plain text one character at a time, a run of finished markup skipped whole in a single press. Any new unedittable region must be reachable past, or it becomes a wall.
 
-**Edits that undo each other must cancel.** Deleting a word and typing it back leaves no trace, not `{--word--}{++word++}`; `normalize()` in `edits.js` runs on every change. Cancellation fires only when one side genuinely contains the other, and never on an annotation that already carries a reason — a reason is deliberate, and dissolving the edit it explains would throw it away.
+**Edits that undo each other must cancel.** Deleting a word and typing it back leaves no trace, not `{--word--}{++word++}`; `normalize()` in `edits.js` runs on every change.
+
+It compares whole *runs* of touching annotations, not neighbouring pairs. A pairwise check is not enough: retype a word and then add a paragraph break, and the insertion ends up separated from the deletion it cancels by a third annotation, so the document shows four changes whose net effect is none. For each run, compare what it accepts to what it rejects — if they match, it is churn, and the run becomes plain text.
+
+Two limits, both deliberate. Cancellation only fires when one side genuinely contains the other, so `alpha -> beta` is not shaved into `alph -> bet` plus a stray "a". And a run stops at anything carrying a reason: someone wrote that explanation on purpose, and dissolving the edit beneath it would discard it.
 
 **Rules go in the pure modules; `app.js` only wires.** `criticmarkup.js` and `edits.js` know about strings and offsets and nothing else — no DOM, no globals. That purity is the only reason the editing model is testable, so any new editing behaviour belongs there with a test, not inline in a handler. The editing model is `(text, caret) → (text, caret)`; keep it that way.
 

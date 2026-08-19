@@ -310,45 +310,34 @@ export function normalize(text, caret) {
   };
 
   for (let pass = 0; pass < 20; pass++) {
-    const anns = parse(out);
+    const runs = cancellableRuns(parse(out));
     let acted = false;
 
-    for (let i = 0; i < anns.length; i++) {
-      const a = anns[i];
+    for (const run of runs) {
+      const before = run.map(rejected).join('');
+      const after = run.map(accepted).join('');
+      const from = run[0].start;
+      const to = run[run.length - 1].end;
 
-      // A substitution that replaces text with itself, wholly or in part.
-      if (a.type === 'sub' && !a.ctok) {
-        const [prefix, addedCore, removedCore, suffix] = shave(a.b, a.a);
-        if ((prefix || suffix) && cancels(addedCore, removedCore)) {
-          const rebuilt = prefix
-            + (removedCore ? `{--${removedCore}--}` : '')
-            + (addedCore ? `{++${addedCore}++}` : '')
-            + suffix;
-          cursor = move(a.start, a.end, rebuilt.length);
-          out = out.slice(0, a.start) + rebuilt + out.slice(a.end);
-          acted = true;
-          break;
-        }
+      // The run as a whole changes nothing: it is churn, not an edit.
+      if (before === after) {
+        cursor = move(from, to, before.length);
+        out = out.slice(0, from) + before + out.slice(to);
+        acted = true;
+        break;
       }
 
-      // An insertion sitting against a deletion, in either order.
-      const b = anns[i + 1];
-      if (!b || a.end !== b.start || a.ctok || b.ctok) continue;
-      const insFirst = a.type === 'ins' && b.type === 'del';
-      const delFirst = a.type === 'del' && b.type === 'ins';
-      if (!insFirst && !delFirst) continue;
-
-      const added = insFirst ? a.a : b.a;
-      const removed = insFirst ? b.a : a.a;
-      const [prefix, addedCore, removedCore, suffix] = shave(added, removed);
-      if (!prefix && !suffix) continue;           // nothing in common
+      const [prefix, addedCore, removedCore, suffix] = shave(after, before);
+      if (!prefix && !suffix) continue;
       if (!cancels(addedCore, removedCore)) continue;
 
-      const insMd = addedCore ? `{++${addedCore}++}` : '';
-      const delMd = removedCore ? `{--${removedCore}--}` : '';
-      const rebuilt = prefix + (insFirst ? insMd + delMd : delMd + insMd) + suffix;
-      cursor = move(a.start, b.end, rebuilt.length);
-      out = out.slice(0, a.start) + rebuilt + out.slice(b.end);
+      const rebuilt = prefix
+        + (removedCore ? `{--${removedCore}--}` : '')
+        + (addedCore ? `{++${addedCore}++}` : '')
+        + suffix;
+      if (rebuilt === out.slice(from, to)) continue;
+      cursor = move(from, to, rebuilt.length);
+      out = out.slice(0, from) + rebuilt + out.slice(to);
       acted = true;
       break;
     }
@@ -357,6 +346,41 @@ export function normalize(text, caret) {
   }
 
   return { text: out, caret: cursor };
+}
+
+/** What this annotation leaves behind if the change is rejected. */
+const rejected = (a) => (a.type === 'ins' ? '' : a.a);
+/** And if it is accepted. */
+const accepted = (a) => (a.type === 'del' ? '' : a.type === 'sub' ? a.b : a.a);
+
+/**
+ * Maximal runs of touching annotations that may be reconsidered as a whole.
+ *
+ * Comparing neighbouring pairs is not enough. Retyping a word and then adding a
+ * paragraph break leaves the insertion and the deletion it cancels separated by
+ * a third annotation, so a pairwise check sees nothing to do and the document
+ * shows four changes whose net effect is none at all.
+ *
+ * A run stops at the first character of ordinary text, at a highlight or a bare
+ * comment — neither is an edit — and at anything already carrying a reason,
+ * which someone wrote deliberately.
+ */
+function cancellableRuns(anns) {
+  const editable = (a) => (a.type === 'ins' || a.type === 'del' || a.type === 'sub') && !a.ctok;
+  const runs = [];
+  let current = [];
+  for (let i = 0; i < anns.length; i++) {
+    const a = anns[i];
+    if (!editable(a)) { if (current.length) runs.push(current); current = []; continue; }
+    const prev = current[current.length - 1];
+    if (prev && prev.end !== a.start) {
+      runs.push(current);
+      current = [];
+    }
+    current.push(a);
+  }
+  if (current.length) runs.push(current);
+  return runs;
 }
 
 /**

@@ -1,6 +1,11 @@
 /**
  * Randomised editing sessions, checked after every keystroke.
  *
+ * Two things are checked. The document invariants — well formed markup, a
+ * reachable caret, reversibility — say the file is not being corrupted. The
+ * reference model says something stronger: that the result is what a plain text
+ * editor would have produced. See `mirror()` in `harness.js`.
+ *
  * The point is to use only states a real user can reach: no placing the caret
  * at an arbitrary offset, no selecting text buried inside markup. Sessions that
  * start from impossible states produce convincing failures that mean nothing —
@@ -10,7 +15,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { editor } from './harness.js';
+import { mirror } from './harness.js';
 import { transform, parse, tokenize, regionAt } from '../src/criticmarkup.js';
 import { normalize } from '../src/edits.js';
 
@@ -39,7 +44,8 @@ for (let session = 0; session < 400; session++) {
   const rnd = mulberry32(session * 7919 + 13);
   const doc = DOCS[Math.floor(rnd() * DOCS.length)];
   const baseline = transform(doc, 'rejected');
-  const ed = editor(doc);
+  const m = mirror(doc);
+  const ed = m.ed;
   const trail = [];
 
   for (let step = 0; step < 25; step++) {
@@ -47,16 +53,16 @@ for (let session = 0; session < 400; session++) {
     try {
       if (roll < 0.35) {
         const w = WORDS[Math.floor(rnd() * WORDS.length)];
-        ed.type(w); trail.push(`type ${JSON.stringify(w)}`);
+        m.type(w); trail.push(`type ${JSON.stringify(w)}`);
       } else if (roll < 0.75) {
         const k = KEYS[Math.floor(rnd() * KEYS.length)];
-        ed.press(k); trail.push(k);
+        m.press(k); trail.push(k);
       } else {
         // Select a real word that exists in the accepted text, the way a user would.
         const words = ed.accepted.split(/\s+/).filter((w) => w.length > 2);
         if (!words.length) continue;
         const w = words[Math.floor(rnd() * words.length)];
-        try { ed.select(w); } catch { continue; }
+        try { m.select(w); } catch { continue; }
         trail.push(`select ${JSON.stringify(w)}`);
       }
     } catch { continue; }
@@ -64,6 +70,7 @@ for (let session = 0; session < 400; session++) {
 
     const problems = [];
     if (ed.rejected !== baseline) problems.push(`reversibility: ${JSON.stringify(ed.rejected)} != ${JSON.stringify(baseline)}`);
+    if (m.divergence) problems.push(`not what a text editor does — ${m.divergence.field}: ${JSON.stringify(m.divergence.real)} != ${JSON.stringify(m.divergence.expected)}`);
     // Well-formedness judged by the real parser, not a regex: every character
     // must be accounted for by exactly one token, and re-parsing must agree.
     const toks = tokenize(ed.source);
@@ -90,7 +97,7 @@ for (let session = 0; session < 400; session++) {
   }
 }
 
-test(`400 random editing sessions hold every invariant`, () => {
+test('400 random editing sessions hold every invariant', () => {
   const report = failures.slice(0, 5).map((f) => [
     `session ${f.session} on ${JSON.stringify(f.doc)}`,
     `  ${f.trail.join(' → ')}`,

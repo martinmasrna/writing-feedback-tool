@@ -42,8 +42,11 @@ export function createApp() {
   const renderHeader = createHeader({
     counts: $('#counts'), dirtyDot: $('#dirtyDot'), fileName: $('#fileName'),
     undo: $('#btnUndo'), redo: $('#btnRedo'), save: $('#btnSave'), copy: $('#btnCopy'),
-    views: $('#views'), note: $('#readonlyNote'),
-  }, { onView: (view) => { toolbar.hide(); store.setView(view); } });
+    views: $('#views'), note: $('#readonlyNote'), pending: $('#pending'),
+  }, {
+    onView: (view) => { toolbar.hide(); store.setView(view); },
+    onReviewReasons: () => reviewNextReason(),
+  });
 
   const renderSidebar = createSidebar({ list: $('#list'), count: $('#annCount') }, {
     onReveal: reveal,
@@ -129,13 +132,19 @@ export function createApp() {
     return node ? node.getBoundingClientRect() : null;
   }
 
-  function settle(nextCaret) {
-    const a = store.activeAnnotation();
+  /**
+   * Editing is never interrupted to ask for a reason.
+   *
+   * Reasons are a review-time act, not a typing-time one: you press Enter for
+   * room, write, delete half of it, come back ten minutes later. Being asked
+   * "why?" five seconds after every keystroke fights that, and re-arms itself
+   * on the next cursor move, which is worse. Unexplained edits are marked
+   * instead — inline, in the sidebar, and in the header — and explained when
+   * the writing is done.
+   */
+  function settle() {
     store.clearActive();
-    if (!a || a.type === 'com' || hasReason(a)) return false;
-    toolbar.hide();
-    dialog.openReasonPrompt(a, nextCaret, rectOf(a));
-    return true;
+    return false;
   }
 
   /* --- selection --------------------------------------------------------- */
@@ -149,9 +158,7 @@ export function createApp() {
 
     if (state.activeStart !== null && !restoringCaret) {
       const a = store.activeAnnotation();
-      if (a && (sel.start < a.start || sel.start > a.end || sel.end > a.end)) {
-        if (settle(sel)) return;
-      }
+      if (a && (sel.start < a.start || sel.start > a.end || sel.end > a.end)) settle();
     }
 
     if (sel.end > sel.start) {
@@ -202,6 +209,15 @@ export function createApp() {
     if (i >= 0) reveal(i);
   }
 
+  /** Walk to the next annotation still lacking a reason and offer to explain it. */
+  function reviewNextReason() {
+    const pending = store.state.anns.filter((a) => a.type !== 'com' && !hasReason(a));
+    if (!pending.length) { toast('Every annotation has a reason.'); return; }
+    const a = pending[0];
+    reveal(store.state.anns.indexOf(a));
+    dialog.openReasonPrompt(a, store.state.caret, rectOf(a));
+  }
+
   function reveal(index) {
     if (!editableView()) store.setView('rendered');
     const a = store.state.anns[index];
@@ -246,6 +262,7 @@ export function createApp() {
   }
 
   const commands = {
+    reasons: reviewNextReason,
     bullet: () => runStructure((t, c) => structure.toggleBullet(t, c)),
     numbered: () => runStructure((t, c) => structure.toggleBullet(t, c, { ordered: true })),
     heading: (level) => runStructure((t, c) => structure.setHeadingLevel(t, c, level)),
@@ -314,6 +331,14 @@ export function createApp() {
     else if (result.status === 'linked') toast(`Saved to ${result.name}. Further saves write straight to this file.`);
     else if (result.detail) toast(`Could not write the file in place (${result.detail}) — downloaded instead.`);
     else toast(`Downloaded ${result.name || 'annotated.md'}.`);
+
+    // Never block the save; just do not let unexplained edits ship silently.
+    const unexplained = store.state.anns.filter((a) => a.type !== 'com' && !hasReason(a)).length;
+    if (unexplained) {
+      setTimeout(() => toast(
+        `${unexplained} annotation${unexplained === 1 ? '' : 's'} still without a reason — `
+        + 'click the counter in the header to work through them.'), 1200);
+    }
   }
 
   fileInput.addEventListener('change', async (e) => {

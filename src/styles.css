@@ -281,3 +281,9 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 }
 
 .item .ex.ex-structural{font-family:var(--ui);font-style:italic;color:var(--ink-2)}
+
+/* Unexplained edits: visible, never blocking. */
+.pending{display:none;border:0;background:transparent;padding:2px 7px;border-radius:5px;
+  font-size:11.5px;color:var(--del);cursor:pointer;white-space:nowrap}
+.pending.on{display:block;background:var(--del-bg)}
+.pending:hover:not(:disabled){background:rgba(165,40,30,.16);border-color:transparent}

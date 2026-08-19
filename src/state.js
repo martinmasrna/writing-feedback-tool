@@ -7,6 +7,7 @@
  */
 
 import { parse } from './criticmarkup.js';
+import { normalize } from './edits.js';
 
 const HISTORY_LIMIT = 400;
 /** Keystrokes of the same kind within this window collapse into one undo step. */
@@ -96,8 +97,10 @@ export function createStore() {
         return 'moved';
       }
       pushHistory(result.coalesce);
-      state.text = result.text;
-      state.caret = result.caret;
+      // Collapse edits that undo each other before they reach the document.
+      const settled = normalize(result.text, result.caret);
+      state.text = settled.text;
+      state.caret = settled.caret;
       reparse();
       trackActive();
       emit();

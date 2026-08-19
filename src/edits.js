@@ -277,3 +277,118 @@ export function removeAnnotation(text, annStart) {
     coalesce: null,
   };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Normalisation                                                               */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Cancel edits that undo each other.
+ *
+ * Deleting a word and typing it back should leave no trace, not
+ * `{--word--}{++word++}`. Editing is exploratory — you delete half a sentence,
+ * rewrite it, change your mind again — and only the net effect is a review
+ * comment worth anyone's time.
+ *
+ * Annotations that already carry a reason are never touched: a reason is a
+ * deliberate act, and silently dissolving the edit it explains would throw that
+ * away. Everything still mid-flight is fair game.
+ */
+export function normalize(text, caret) {
+  let out = text;
+  let cursor = caret;
+
+  const move = (from, to, replacementLength) => {
+    if (!cursor) return cursor;
+    const delta = replacementLength - (to - from);
+    const map = (p) => {
+      if (p <= from) return p;
+      if (p >= to) return p + delta;
+      return from + replacementLength;
+    };
+    return { start: map(cursor.start), end: map(cursor.end) };
+  };
+
+  for (let pass = 0; pass < 20; pass++) {
+    const anns = parse(out);
+    let acted = false;
+
+    for (let i = 0; i < anns.length; i++) {
+      const a = anns[i];
+
+      // A substitution that replaces text with itself, wholly or in part.
+      if (a.type === 'sub' && !a.ctok) {
+        const [prefix, addedCore, removedCore, suffix] = shave(a.b, a.a);
+        if ((prefix || suffix) && cancels(addedCore, removedCore)) {
+          const rebuilt = prefix
+            + (removedCore ? `{--${removedCore}--}` : '')
+            + (addedCore ? `{++${addedCore}++}` : '')
+            + suffix;
+          cursor = move(a.start, a.end, rebuilt.length);
+          out = out.slice(0, a.start) + rebuilt + out.slice(a.end);
+          acted = true;
+          break;
+        }
+      }
+
+      // An insertion sitting against a deletion, in either order.
+      const b = anns[i + 1];
+      if (!b || a.end !== b.start || a.ctok || b.ctok) continue;
+      const insFirst = a.type === 'ins' && b.type === 'del';
+      const delFirst = a.type === 'del' && b.type === 'ins';
+      if (!insFirst && !delFirst) continue;
+
+      const added = insFirst ? a.a : b.a;
+      const removed = insFirst ? b.a : a.a;
+      const [prefix, addedCore, removedCore, suffix] = shave(added, removed);
+      if (!prefix && !suffix) continue;           // nothing in common
+      if (!cancels(addedCore, removedCore)) continue;
+
+      const insMd = addedCore ? `{++${addedCore}++}` : '';
+      const delMd = removedCore ? `{--${removedCore}--}` : '';
+      const rebuilt = prefix + (insFirst ? insMd + delMd : delMd + insMd) + suffix;
+      cursor = move(a.start, b.end, rebuilt.length);
+      out = out.slice(0, a.start) + rebuilt + out.slice(b.end);
+      acted = true;
+      break;
+    }
+
+    if (!acted) break;
+  }
+
+  return { text: out, caret: cursor };
+}
+
+/**
+ * Only collapse when one side genuinely contains the other — that is the
+ * "I deleted this and typed it back" case worth erasing.
+ *
+ * Incidental overlap is not: "alpha" and "beta" happen to share a trailing "a",
+ * and shaving it would turn a legible `alpha -> beta` into `alph -> bet` with a
+ * stray "a" beside it. Equivalent to a machine, worse for the person reading
+ * the review.
+ */
+function cancels(addedCore, removedCore) {
+  return !addedCore || !removedCore;
+}
+
+/**
+ * Strip the head and tail that `added` and `removed` share.
+ * @returns {[string,string,string,string]} prefix, added core, removed core, suffix
+ */
+function shave(added, removed) {
+  let head = 0;
+  while (head < added.length && head < removed.length && added[head] === removed[head]) head++;
+  let tail = 0;
+  while (
+    tail < added.length - head
+    && tail < removed.length - head
+    && added[added.length - 1 - tail] === removed[removed.length - 1 - tail]
+  ) tail++;
+  return [
+    added.slice(0, head),
+    added.slice(head, added.length - tail),
+    removed.slice(head, removed.length - tail),
+    added.slice(added.length - tail),
+  ];
+}

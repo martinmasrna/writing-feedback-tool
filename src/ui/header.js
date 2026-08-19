@@ -8,7 +8,7 @@ const COUNTED = [
   ['com', 'hl'],
 ];
 
-export function createHeader(refs, { onView }) {
+export function createHeader(refs, { onView, onReviewReasons }) {
   Array.from(refs.views.children).forEach((b) => {
     b.addEventListener('click', () => onView(b.dataset.view));
   });
@@ -32,8 +32,18 @@ export function createHeader(refs, { onView }) {
     }
   }
 
+  refs.pending.addEventListener('click', () => onReviewReasons && onReviewReasons());
+
+  function renderPending(anns) {
+    const n = anns.filter((a) => a.type !== 'com' && (a.reason === null || a.reason.trim() === '')).length;
+    refs.pending.textContent = n ? `${n} without reason` : '';
+    refs.pending.classList.toggle('on', n > 0);
+    refs.pending.title = n ? 'Work through the edits that still need explaining' : '';
+  }
+
   return function render(state, dirty) {
     renderCounts(state.anns);
+    renderPending(state.anns);
     refs.dirtyDot.classList.toggle('on', dirty);
     refs.fileName.textContent = state.loaded ? state.name || 'untitled.md' : 'no file';
     refs.undo.disabled = !state.undo.length;

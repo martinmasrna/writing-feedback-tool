@@ -56,6 +56,10 @@ Structure is parsed here rather than by a markdown library for one decisive reas
 
 ## Conventions
 
+**Never interrupt editing to ask for a reason.** Reasons are a review-time act, not a typing-time one — people press Enter for room, write, delete half of it, come back ten minutes later. An earlier build prompted whenever the cursor left an edit; it re-armed itself on the next cursor move and became inescapable. Unexplained edits are *marked* — inline, in the sidebar, and in the header counter — and explained when the writing is done.
+
+**Edits that undo each other must cancel.** Deleting a word and typing it back leaves no trace, not `{--word--}{++word++}`; `normalize()` in `edits.js` runs on every change. Cancellation fires only when one side genuinely contains the other, and never on an annotation that already carries a reason — a reason is deliberate, and dissolving the edit it explains would throw it away.
+
 **Rules go in the pure modules; `app.js` only wires.** `criticmarkup.js` and `edits.js` know about strings and offsets and nothing else — no DOM, no globals. That purity is the only reason the editing model is testable, so any new editing behaviour belongs there with a test, not inline in a handler. The editing model is `(text, caret) → (text, caret)`; keep it that way.
 
 **Every editing rule gets a test.** `npm test` runs Node's own test runner with no browser and no deps. The merge rules especially — holding ⌫ growing one deletion instead of a chain, a typing burst producing one insertion, an emptied substitution collapsing back to a deletion — are subtle, easy to regress, and cheap to cover. A browser check is not a substitute; it is the thing you do *after*.

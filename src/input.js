@@ -98,6 +98,7 @@ export function attachShortcuts({ undo, redo, save, comment, escape, dialogOpen,
     }
     if (mod && key === 's') { e.preventDefault(); save(); return; }
     if (mod && e.altKey && key === 'm') { e.preventDefault(); comment(); return; }
+    if (mod && e.altKey && key === 'r' && commands.reasons) { e.preventDefault(); commands.reasons(); return; }
 
     // Structural commands, in the register people already know.
     //

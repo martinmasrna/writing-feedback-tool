@@ -1,0 +1,324 @@
+/**
+ * Wiring. Everything below is orchestration: the editing rules live in
+ * edits.js, the markup rules in criticmarkup.js, and the document state in
+ * state.js — all three of which are pure and tested.
+ */
+
+import { transform, hasReason } from './criticmarkup.js';
+import * as edits from './edits.js';
+import { createStore } from './state.js';
+import { buildDocument } from './dom/render.js';
+import { createOffsetIndex } from './dom/offsets.js';
+import { createToast } from './ui/toast.js';
+import { createHeader } from './ui/header.js';
+import { createSidebar } from './ui/sidebar.js';
+import { createToolbar } from './ui/toolbar.js';
+import { createDialog } from './ui/dialog.js';
+import { attachInput, attachShortcuts } from './input.js';
+import * as files from './files.js';
+
+const $ = (sel) => document.querySelector(sel);
+
+export function createApp() {
+  const doc = $('#doc');
+  const pane = $('#docPane');
+  const store = createStore();
+  const offsets = createOffsetIndex(doc);
+  const toast = createToast($('#toast'));
+
+  /** Set while we restore the caret ourselves, so it does not read as a user move. */
+  let restoringCaret = false;
+  /** The selection the floating toolbar is acting on. */
+  let pendingSelection = null;
+
+  /* --- rendering --------------------------------------------------------- */
+
+  const renderHeader = createHeader({
+    counts: $('#counts'), dirtyDot: $('#dirtyDot'), fileName: $('#fileName'),
+    undo: $('#btnUndo'), redo: $('#btnRedo'), save: $('#btnSave'), copy: $('#btnCopy'),
+    views: $('#views'), note: $('#readonlyNote'),
+  }, { onView: (view) => { toolbar.hide(); store.setView(view); } });
+
+  const renderSidebar = createSidebar({ list: $('#list'), count: $('#annCount') }, {
+    onReveal: reveal,
+    onRemove: (a) => {
+      store.clearActive();
+      applyResult(edits.removeAnnotation(store.state.text, a.start));
+    },
+    onReason: (a, value) => {
+      if (value === null) { store.refresh(); return; }   // cancelled
+      const result = edits.setReason(store.state.text, a.start, value, store.state.caret);
+      if (result) applyResult(result); else store.refresh();
+    },
+  });
+
+  const toolbar = createToolbar($('#toolbar'), { onAction: openForm });
+
+  const dialog = createDialog({
+    dialog: $('#dialog'), scrim: $('#scrim'), title: $('#dlgTitle'), ctx: $('#dlgCtx'),
+    reason: $('#fReason'), reasonLabel: $('#lblReason'), reasonOpt: $('#reasonOpt'),
+    text: $('#fText'), textLabel: $('#lblText'), textRow: $('#textRow'),
+    apply: $('#dlgApply'), close: $('#dlgClose'), hint: $('#dlgHint'),
+  }, {
+    onAnnotate: (spec, message) => {
+      if (!spec) { toast(message); return; }
+      store.clearActive();
+      const result = edits.annotate(store.state.text, spec.selection, spec.kind, spec.text, spec.reason);
+      applyResult(result);
+      if (result && !result.blocked && !spec.reason.trim()) toast('Annotation saved without a reason.');
+      doc.focus();
+    },
+    onReason: (annotation, value, returnCaret) => {
+      store.clearActive();
+      const result = edits.setReason(store.state.text, annotation.start, value, returnCaret);
+      doc.focus();
+      if (result) applyResult(result);
+      else if (returnCaret) { store.setCaret(returnCaret); offsets.writeSelection(returnCaret); }
+    },
+    onDismiss: (returnCaret) => {
+      store.clearActive();
+      doc.focus();
+      if (returnCaret) { store.setCaret(returnCaret); offsets.writeSelection(returnCaret); }
+    },
+  });
+
+  function render() {
+    const state = store.state;
+    if (state.view === 'source') {
+      doc.setAttribute('contenteditable', 'true');
+      doc.classList.remove('readonly');
+      doc.textContent = '';
+      doc.append(buildDocument(state.text, state.anns));
+      offsets.reindex();
+    } else {
+      doc.setAttribute('contenteditable', 'false');
+      doc.classList.add('readonly');
+      doc.textContent = transform(state.text, state.view);
+    }
+
+    renderSidebar(state);
+    renderHeader(state, store.dirty());
+    $('#empty').style.display = state.loaded ? 'none' : 'flex';
+
+    if (state.view === 'source' && state.caret && !dialog.open) {
+      restoringCaret = true;
+      offsets.writeSelection(state.caret);
+      setTimeout(() => { restoringCaret = false; }, 0);
+    }
+  }
+  store.subscribe(render);
+
+  /* --- the reason prompt, fired when an edit settles --------------------- */
+
+  function rectOf(annotation) {
+    const node = doc.querySelector(`.ann[data-start="${annotation.start}"]`);
+    return node ? node.getBoundingClientRect() : null;
+  }
+
+  function settle(nextCaret) {
+    const a = store.activeAnnotation();
+    store.clearActive();
+    if (!a || a.type === 'com' || hasReason(a)) return false;
+    toolbar.hide();
+    dialog.openReasonPrompt(a, nextCaret, rectOf(a));
+    return true;
+  }
+
+  /* --- selection --------------------------------------------------------- */
+
+  function onSelectionChange() {
+    const state = store.state;
+    if (dialog.open || !state.loaded || state.view !== 'source') return;
+    const sel = offsets.readSelection();
+    if (!sel) { pendingSelection = null; toolbar.hide(); return; }
+    store.setCaret(sel);
+
+    if (state.activeStart !== null && !restoringCaret) {
+      const a = store.activeAnnotation();
+      if (a && (sel.start < a.start || sel.start > a.end || sel.end > a.end)) {
+        if (settle(sel)) return;
+      }
+    }
+
+    if (sel.end > sel.start) {
+      const rect = window.getSelection().getRangeAt(0).getBoundingClientRect();
+      pendingSelection = sel;
+      toolbar.show(rect);
+    } else {
+      pendingSelection = sel;
+      toolbar.hide();
+    }
+  }
+
+  let selectionTimer = null;
+  document.addEventListener('selectionchange', () => {
+    clearTimeout(selectionTimer);
+    selectionTimer = setTimeout(onSelectionChange, 10);
+  });
+  pane.addEventListener('scroll', () => { if (!dialog.open) toolbar.hide(); });
+
+  doc.addEventListener('click', (e) => {
+    const marker = e.target.closest ? e.target.closest('.noreason') : null;
+    if (!marker) return;
+    e.preventDefault();
+    const a = store.state.anns[Number(marker.dataset.ann)];
+    if (a) dialog.openReasonPrompt(a, store.state.caret, rectOf(a));
+  });
+
+  function openForm(kind) {
+    if (!pendingSelection || pendingSelection.end === pendingSelection.start) {
+      toast('Select some text first.');
+      return;
+    }
+    const probe = edits.annotate(store.state.text, pendingSelection, kind, '', '');
+    if (probe && probe.blocked) { refuse(probe.blocked); return; }
+    toolbar.hide();
+    const rect = window.getSelection().rangeCount
+      ? window.getSelection().getRangeAt(0).getBoundingClientRect()
+      : null;
+    dialog.openForm(kind, pendingSelection, store.state.text, rect);
+  }
+
+  function refuse(annotation) {
+    toast(`That range crosses an existing ${annotation.type === 'hl' ? 'comment' : annotation.type} annotation. `
+      + 'Annotations can’t nest or overlap — delete that one first.');
+    const i = store.state.anns.indexOf(annotation);
+    if (i >= 0) reveal(i);
+  }
+
+  function reveal(index) {
+    if (store.state.view !== 'source') store.setView('source');
+    const node = doc.querySelector(`.ann[data-i="${index}"]`);
+    if (!node) return;
+    const r = node.getBoundingClientRect();
+    const pr = pane.getBoundingClientRect();
+    const top = pane.scrollTop + (r.top - pr.top) - (pane.clientHeight - r.height) / 2;
+    pane.scrollTop = Math.max(0, Math.min(top, pane.scrollHeight - pane.clientHeight));
+    node.classList.add('flash');
+    setTimeout(() => node.classList.remove('flash'), 900);
+  }
+
+  /* --- applying edit results -------------------------------------------- */
+
+  function applyResult(result) {
+    if (!result) return;
+    if (result.blocked) { refuse(result.blocked); return; }
+    if (result.stripped) toast('Removed CriticMarkup delimiters — they would corrupt the annotation.');
+    store.apply(result);
+  }
+
+  /* --- input ------------------------------------------------------------- */
+
+  attachInput(doc, {
+    read: () => offsets.readSelection(),
+    apply: applyResult,
+    getText: () => store.state.text,
+    canEdit: () => store.state.loaded && store.state.view === 'source',
+    undo: () => store.undo(),
+    redo: () => store.redo(),
+    onComposedRender: render,
+  });
+
+  attachShortcuts({
+    undo: () => store.undo(),
+    redo: () => store.redo(),
+    save: () => save(),
+    comment: () => {
+      if (pendingSelection && pendingSelection.end > pendingSelection.start) openForm('hl');
+      else toast('Select the passage you want to comment on first.');
+    },
+    escape: () => toolbar.hide(),
+    dialogOpen: () => dialog.open,
+  });
+
+  /* --- files ------------------------------------------------------------- */
+
+  const fileInput = $('#fileInput');
+
+  function load(text, name, handle) {
+    store.load(text, name, handle);
+    pane.scrollTop = 0;
+    pendingSelection = null;
+  }
+
+  async function open() {
+    if (store.dirty() && !confirm('Open another document? Unsaved annotations will be lost.')) return;
+    const opened = await files.openDocument(fileInput);
+    if (opened) load(opened.text, opened.name, opened.handle);
+  }
+
+  async function save() {
+    const state = store.state;
+    if (!state.loaded) return;
+    const result = await files.saveDocument(state.text, state.name, state.handle);
+    if (result.status === 'cancelled') return;
+    store.markSaved(result.name, result.handle);
+    if (result.status === 'in-place') toast(`Saved to ${result.name}.`);
+    else if (result.status === 'linked') toast(`Saved to ${result.name}. Further saves write straight to this file.`);
+    else if (result.detail) toast(`Could not write the file in place (${result.detail}) — downloaded instead.`);
+    else toast(`Downloaded ${result.name || 'annotated.md'}.`);
+  }
+
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    load(await files.readFile(file), file.name, null);
+  });
+
+  $('#btnOpen').addEventListener('click', open);
+  $('#btnPick').addEventListener('click', open);
+  $('#btnSave').addEventListener('click', save);
+  $('#btnCopy').addEventListener('click', async () => {
+    if (!store.state.loaded) return;
+    const ok = await files.copyToClipboard(store.state.text);
+    toast(ok ? 'Copied the annotated markdown to the clipboard.' : 'Copy failed — use Save instead.');
+  });
+  $('#btnUndo').addEventListener('click', () => { store.undo(); doc.focus(); });
+  $('#btnRedo').addEventListener('click', () => { store.redo(); doc.focus(); });
+  $('#btnPaste').addEventListener('click', () => {
+    const value = $('#pasteBox').value;
+    if (!value.trim()) { toast('Paste some markdown first.'); return; }
+    load(value, 'pasted.md', null);
+  });
+
+  /* --- drag and drop ------------------------------------------------------ */
+
+  const dropZone = $('#drop');
+  const hasFiles = (e) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files');
+  let dragDepth = 0;
+
+  window.addEventListener('dragenter', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    dropZone.classList.add('hot');
+  });
+  window.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  });
+  window.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (!dragDepth) dropZone.classList.remove('hot');
+  });
+  window.addEventListener('drop', async (e) => {
+    if (!e.dataTransfer || !e.dataTransfer.files.length) return;
+    e.preventDefault();
+    dragDepth = 0;
+    dropZone.classList.remove('hot');
+    if (store.dirty() && !confirm('Replace the current document? Unsaved annotations will be lost.')) return;
+    const file = e.dataTransfer.files[0];
+    load(await files.readFile(file), file.name, null);
+  });
+
+  window.addEventListener('beforeunload', (e) => {
+    if (!store.dirty()) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
+
+  render();
+  return { store, load, save };
+}

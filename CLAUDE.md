@@ -37,7 +37,8 @@ Structure is parsed here rather than by a markdown library for one decisive reas
 
 ## What to read, and when
 
-**Read nothing up front beyond this file.** Pull only what the task needs.
+**Read nothing up front beyond this file**, except `TODO.md` if you are picking
+up work rather than answering a question. Pull only what the task needs.
 
 | task | context |
 |---|---|

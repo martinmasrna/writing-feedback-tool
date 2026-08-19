@@ -100,3 +100,26 @@ test('the harness refuses a caret inside markup', () => {
   const ed = editor('a {--gone--} b');
   assert.throws(() => ed.caretAt(5), /inside markup/);
 });
+
+test('a selection that swallows a code block is refused', () => {
+  const original = 'Before the code.\n\n```js\nconst x = 1;\n```\n\nAfter the code.\n';
+  const ed = editor(original);
+  ed.selectRange(7, original.indexOf('After') + 5);
+  ed.type('Z');
+  assert.equal(ed.source, original, 'the document is untouched');
+});
+
+test('the same selection is refused for deletion too', () => {
+  const original = 'Before.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter.\n';
+  const ed = editor(original);
+  ed.selectRange(0, original.indexOf('After') + 5);
+  ed.press('Backspace');
+  assert.equal(ed.source, original, 'a table is not swallowed either');
+});
+
+test('editing either side of a code block still works', () => {
+  const original = 'Before the code.\n\n```js\nconst x = 1;\n```\n\nAfter the code.\n';
+  const ed = editor(original).select('Before').type('Above');
+  assert.equal(ed.accepted, 'Above the code.\n\n```js\nconst x = 1;\n```\n\nAfter the code.\n');
+  assertReversible(assert, ed);
+});

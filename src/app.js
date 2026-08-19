@@ -202,10 +202,16 @@ export function createApp() {
     dialog.openForm(kind, pendingSelection, store.state.text, rect);
   }
 
-  function refuse(annotation) {
-    toast(`That range crosses an existing ${annotation.type === 'hl' ? 'comment' : annotation.type} annotation. `
+  function refuse(blocked) {
+    if (blocked.kind === 'unsupported') {
+      const what = blocked.reason === 'code' ? 'a code block' : blocked.reason === 'table' ? 'a table' : 'raw HTML';
+      toast(`That selection takes in ${what}, which this view cannot edit safely. `
+        + 'Select around it, or switch to the Source view.');
+      return;
+    }
+    toast(`That range crosses an existing ${blocked.type === 'hl' ? 'comment' : blocked.type} annotation. `
       + 'Annotations can’t nest or overlap — delete that one first.');
-    const i = store.state.anns.indexOf(annotation);
+    const i = store.state.anns.indexOf(blocked);
     if (i >= 0) reveal(i);
   }
 

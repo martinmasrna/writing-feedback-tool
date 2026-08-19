@@ -74,6 +74,30 @@ export function blockJoinBefore(text, caret, view) {
 }
 
 /**
+ * The unsupported block a selection would swallow, if any.
+ *
+ * Code fences, tables and raw HTML are rendered as read-only islands, so the
+ * caret cannot get inside one — but a selection dragged from above to below one
+ * used to take it along, burying the whole block inside a substitution. The
+ * text survived, but the island vanished from the screen and the document
+ * collapsed around it. We refuse to mangle what we do not fully parse, and that
+ * has to hold for ordinary typing, not only for the structural commands.
+ */
+export function crossesUnsupported(text, sel) {
+  const blocks = parseBlocks(text);
+  if (collapsed(sel)) {
+    const here = blockAt(blocks, sel.start);
+    return here && here.type === 'unsupported' && sel.start > here.start && sel.start < here.end ? here : null;
+  }
+  return blocks.find((b) => b.type === 'unsupported' && sel.start < b.end && sel.end > b.start) || null;
+}
+
+const MUTATING = new Set([
+  'insertText', 'insertParagraph', 'insertLineBreak', 'paste',
+  'deleteBackward', 'deleteForward', 'deleteWordBackward', 'deleteWordForward', 'deleteLineBackward',
+]);
+
+/**
  * Apply one editing action.
  *
  * @param {EditorState} state
@@ -83,6 +107,11 @@ export function blockJoinBefore(text, caret, view) {
 export function applyAction(state, action) {
   const { text, caret, view } = state;
   const sel = caret;
+
+  if (MUTATING.has(action.type)) {
+    const island = crossesUnsupported(text, sel);
+    if (island) return { blocked: { kind: 'unsupported', reason: island.reason } };
+  }
 
   switch (action.type) {
     case 'insertText':

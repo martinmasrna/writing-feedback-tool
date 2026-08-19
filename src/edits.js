@@ -392,3 +392,39 @@ function shave(added, removed) {
     added.slice(added.length - tail),
   ];
 }
+
+/* -------------------------------------------------------------------------- */
+/* Caret movement                                                              */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Where the caret may sit: anywhere except inside finished markup.
+ *
+ * Struck text, highlights and comment chips are `contenteditable="false"`, so
+ * the browser will not put the caret inside them — but it also will not step
+ * *over* them. An arrow press next to one appears to do nothing at all, and the
+ * next thing you type lands wherever the caret was stuck. So we move the caret
+ * ourselves.
+ */
+function isCaretPosition(anns, p) {
+  return regionAt(anns, p).kind !== 'atomic';
+}
+
+/**
+ * The next place the caret can legally sit, `dir` characters away.
+ *
+ * Plain text steps one character at a time. A run of finished markup is
+ * stepped over whole, since every position inside it is illegal — so one press
+ * takes you from one side of a deletion to the other, rather than nowhere.
+ */
+export function stepCaret(text, offset, dir) {
+  const anns = parse(text);
+  let p = offset + dir;
+  while (p > 0 && p < text.length && !isCaretPosition(anns, p)) p += dir;
+
+  // Never land between the halves of a surrogate pair.
+  const code = text.charCodeAt(p);
+  if (p > 0 && p < text.length && code >= 0xdc00 && code <= 0xdfff) p += dir;
+
+  return Math.max(0, Math.min(p, text.length));
+}

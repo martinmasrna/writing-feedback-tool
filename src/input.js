@@ -13,7 +13,7 @@ import * as edits from './edits.js';
  * @param {(sel:{start,end}) => any} read      current selection in source offsets
  * @param {(result:any) => string}   apply     hand a result to the store
  */
-export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, onComposedRender, paragraphBreak }) {
+export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, onComposedRender, paragraphBreak, setCaret }) {
   doc.addEventListener('beforeinput', (e) => {
     if (!canEdit()) { e.preventDefault(); return; }
     // Composition is handled at compositionend; cancelling it here breaks IME.
@@ -67,6 +67,27 @@ export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, on
       default:
         break;
     }
+  });
+
+  // Arrow keys have to be driven by hand. The browser will not move the caret
+  // across a contenteditable="false" span, so a press beside struck text does
+  // nothing and the next keystroke lands in the wrong place.
+  doc.addEventListener('keydown', (e) => {
+    if (!canEdit()) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;   // word/line/selection: leave alone
+
+    const sel = read();
+    if (!sel) return;
+    const dir = e.key === 'ArrowLeft' ? -1 : 1;
+
+    // A collapsed caret steps; a selection collapses to the edge you moved toward.
+    const from = sel.end > sel.start ? (dir < 0 ? sel.start : sel.end) : sel.start;
+    const target = sel.end > sel.start ? from : edits.stepCaret(getText(), from, dir);
+    if (target === sel.start && target === sel.end) return;         // already at the end of the document
+
+    e.preventDefault();
+    setCaret({ start: target, end: target });
   });
 
   // IME: let the browser compose freely, then discard its DOM edit and apply the

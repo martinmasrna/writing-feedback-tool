@@ -280,6 +280,7 @@ export function createApp() {
     undo: () => store.undo(),
     redo: () => store.redo(),
     onComposedRender: render,
+    setCaret: (caret) => { store.setCaret(caret); offsets.writeSelection(caret); },
     // Enter means "new block" in the rendered view, and continues a list.
     paragraphBreak: () => {
       if (store.state.view !== 'rendered') return '\n';

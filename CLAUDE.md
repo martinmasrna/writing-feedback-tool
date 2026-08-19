@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working in this
 
 A markdown review tool. You open a document written by someone (usually an AI agent), edit it like a normal text editor, and every change is recorded in the file itself as CriticMarkup with a reason attached. Downstream, an agent reads each annotation as a `{location, edit, reason}` triple.
 
+The name `redline` is a **placeholder** — it is the correct industry term, but it is also
+taken by adjacent markdown-review projects. Nothing depends on it. Don't build identity
+around it, and don't reopen the question unasked.
+
 **The annotated `.md` file is the entire state.** No database, no export step. Annotations are re-derived from the text on every change rather than stored beside it, so the file and the UI cannot drift apart. If you find yourself caching parsed annotations anywhere but `state.js`, stop.
 
 ## Two invariants hold the design up

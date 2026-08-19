@@ -54,6 +54,8 @@ up work rather than answering a question. Pull only what the task needs.
 | what the annotated file looks like on screen | `src/dom/render.js` |
 | open, save, save-in-place, drag-and-drop | `src/files.js` |
 | how it all connects | `src/app.js` — orchestration only, no rules |
+| testing an editing rule | `test/harness.js` — `editor()` to drive it, `mirror()` to hold it against a plain text editor |
+| testing what reaches the screen | `test/dom.js`, then `test/render.test.js` |
 
 ## Conventions
 
@@ -84,18 +86,24 @@ Two limits, both deliberate. Cancellation only fires when one side genuinely con
 
 The harness now refuses a caret inside markup and skips selections buried in it, because a test built on an unreachable state proves nothing and reads exactly like a real bug.
 
-**Every editing rule gets a test.** `npm test` runs Node's own test runner with no browser and no deps. The merge rules especially — holding ⌫ growing one deletion instead of a chain, a typing burst producing one insertion, an emptied substitution collapsing back to a deletion — are subtle, easy to regress, and cheap to cover. A browser check is not a substitute; it is the thing you do *after*.
+**Every editing rule gets a test.** `npm test` runs Node's own test runner. The merge rules especially — holding ⌫ growing one deletion instead of a chain, a typing burst producing one insertion, an emptied substitution collapsing back to a deletion — are subtle, easy to regress, and cheap to cover. A browser check is not a substitute; it is the thing you do *after*.
+
+**Two of the layers check things a string comparison cannot.**
+
+`mirror()` in `test/harness.js` runs the real editor and a plain text one — a string, a caret, textbook semantics, written from scratch — over the same keystrokes, and asserts after each that `ed.accepted` equals what a normal editor would have produced. That turns "does this behave like a text editor" from a judgement call into a failing test; it is what caught backspace leaving a stray `-` behind when the bullet it removed was part of a change still in flight. Some keystrokes have no plain-text answer — Enter, arrows, word deletes clamped by markup — and the mirror records them as skipped rather than inventing one. `test/reference.test.js` names the cases; the fuzz runs the same machinery over ten thousand random keystrokes.
+
+`test/render.test.js` draws the document into jsdom and asserts on the nodes. Every text node must hold exactly the visible text at the offset it claims, no delimiter may reach the screen, every character block structure calls text must be on it, and a caret offset must survive a round trip through `sourceToPoint`/`pointToSource`. jsdom does no layout, so anything positional still needs a browser.
 
 **`dist/index.html` is generated. Never edit it by hand.** Run `npm run build`. It is committed on purpose: the product is a file you double-click from disk, so a clone has to be immediately usable without a build.
 
-**No runtime dependencies, ever.** The page must work offline from `file://` with no network and no CDN. `esbuild` is the one devDependency and exists only to produce the single-file artifact; the build asserts the output has no external references.
+**No runtime dependencies, ever.** The page must work offline from `file://` with no network and no CDN. The two devDependencies never reach it: `esbuild` produces the single-file artifact, and `jsdom` gives the render tests a document. The build asserts the output has no external references.
 
 **Docs state the current truth, not its history.** Rewrite lines to say what is now true and delete what isn't. The path lives in git. No "SUPERSEDED" blocks, no tombstones for behaviour that changed.
 
 ## Commands
 
 ```
-npm test            # pure logic; no browser needed
+npm test            # editing logic, the reference model, and the DOM under jsdom
 npm run dev         # static server on :4173 — browsers won't load ES modules over file://
 npm run build       # → dist/index.html, self-contained
 ```

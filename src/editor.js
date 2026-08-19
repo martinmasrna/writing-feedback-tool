@@ -13,6 +13,7 @@
 
 import * as edits from './edits.js';
 import { parseBlocks, blockAt } from './blocks.js';
+import { toVisible, toVisibleOffset, toSourceRange } from './visible.js';
 
 /** @typedef {{text:string, caret:{start:number,end:number}, view:string}} EditorState */
 
@@ -56,9 +57,17 @@ export function markerBefore(text, caret, view) {
   if (view !== 'rendered') return null;
   const block = blockAt(parseBlocks(text), caret.start);
   if (!block || block.markerStart === undefined) return null;
-  if (caret.start !== block.contentStart) return null;
-  if (block.contentStart <= block.markerStart) return null;
-  return { start: block.markerStart, end: block.contentStart };
+  if (block.visible.contentStart <= block.visible.markerStart) return null;
+
+  // Both comparisons are made on screen rather than in the source, because the
+  // source offsets lie whenever markup is in the way. When a block's content
+  // begins with an annotation the caret can only stand *before* the opening
+  // delimiter, several characters short of the mapped contentStart — and a
+  // marker that is itself part of a change ends where its text ends, not where
+  // the next visible character happens to come from.
+  const visible = toVisible(text);
+  if (toVisibleOffset(visible, caret.start) !== block.visible.contentStart) return null;
+  return toSourceRange(visible, block.visible.markerStart, block.visible.markerEnd);
 }
 
 /**
@@ -131,7 +140,7 @@ export function applyAction(state, action) {
       // At the head of a block, take the whole marker rather than a character of it.
       const marker = markerBefore(text, sel, view);
       if (marker) {
-        const removed = edits.deleteRange(text, marker, 'back');
+        const removed = edits.removeMarker(text, marker);
         if (removed && !removed.blocked) return removed;
       }
       const join = blockJoinBefore(text, sel, view);

@@ -89,6 +89,27 @@ test('Enter inside a list item still splits it into two', () => {
   assert.equal(ed.accepted, '- Item\n-  one\n');
 });
 
+/* --- found by the reference model ----------------------------------------- */
+
+test('backspace removes a bullet the same Enter just wrote', () => {
+  // Enter in a list writes the next `- ` inside the insertion, so the marker
+  // rule has to reach into a change still in flight. It used to strike out one
+  // character and leave a stray `-` sitting in the document as body text.
+  const ed = editor('- one\n- two\n').select('two').press('Enter').press('Backspace');
+  assert.equal(ed.accepted, '- one\n- \n\n', 'the whole bullet goes, not the space after it');
+  assertReversible(assert, ed);
+});
+
+test('backspace removes a heading marker whose text is already struck', () => {
+  // With the content struck, the only offset the caret can occupy is before the
+  // opening delimiter — several characters short of the mapped contentStart.
+  // Comparing source offsets there missed the marker and ate the space,
+  // leaving `#`, which is not a heading.
+  const ed = editor('# Title\n\nBody.\n').select('Title').press('Backspace').press('Backspace');
+  assert.equal(ed.accepted, '\n\nBody.\n', 'not "#", a marker with nothing to mark');
+  assertReversible(assert, ed);
+});
+
 test('rejected is the text underneath, not the string you passed in', () => {
   const ed = editor('Text with {~~old~>new~~} replacement.\n');
   assert.equal(ed.original, 'Text with old replacement.\n');

@@ -96,6 +96,32 @@ export function toSource(visible, offset) {
 }
 
 /**
+ * The inverse: where a source offset appears on screen.
+ *
+ * Offsets swallowed by a delimiter have no visible position of their own, so
+ * they resolve to the first one at or after them — which is where the caret
+ * standing there is drawn.
+ */
+export function toVisibleOffset(visible, offset) {
+  for (let i = 0; i < visible.map.length; i++) {
+    if (visible.map[i] >= offset) return i;
+  }
+  return visible.map.length - 1;
+}
+
+/**
+ * Source range for a visible range.
+ *
+ * The end cannot go through `toSource`: the offset just past a visible run
+ * often maps across a delimiter to somewhere much further on. One past the last
+ * character of the run is the honest answer.
+ */
+export function toSourceRange(visible, from, to) {
+  const start = toSource(visible, from);
+  return { start, end: to > from ? visible.map[to - 1] + 1 : start };
+}
+
+/**
  * Split [from,to) of the visible text at every change boundary.
  * @returns {Array<{start:number,end:number,kind:string|null,annStart:number|null}>}
  */

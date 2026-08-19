@@ -231,6 +231,43 @@ export function deleteLineBackward(text, p) {
   return q < p ? deleteRange(text, { start: q, end: p }, 'back') : null;
 }
 
+/* --- Whole block markers -------------------------------------------------- */
+
+/** The half of an annotation the caret may type into, or null. */
+function editableBody(a) {
+  if (a.type === 'ins') return [bodyStart(a), bodyEnd(a)];
+  if (a.type === 'sub') return [newStart(a), newEnd(a)];
+  return null;
+}
+
+/**
+ * Take out a whole block marker — the `# `, `- `, `> ` at the head of a block.
+ *
+ * Usually that is an ordinary tracked deletion. But a marker can sit inside a
+ * change still in flight: pressing Enter in a list writes the next `- ` into
+ * the insertion, and backspacing there has to remove the bullet, not one
+ * character of it. Striking it out is impossible inside an annotation, so it is
+ * spliced away instead — the same rule as erasing text you just typed.
+ *
+ * Emptying the change removes it: an insertion disappears, and a substitution
+ * falls back to the deletion it started as.
+ */
+export function removeMarker(text, range) {
+  const host = parse(text).find((a) => {
+    const body = editableBody(a);
+    return body && range.start >= body[0] && range.end <= body[1];
+  });
+  if (!host) return deleteRange(text, range, 'back');
+
+  const [from, to] = editableBody(host);
+  const body = text.slice(from, range.start) + text.slice(range.end, to);
+  if (body !== '') return { text: splice(text, from, to, body), caret: at(range.start), coalesce: 'del' };
+
+  const tail = host.ctok ? `{>>${host.ctok.a}<<}` : '';
+  const md = host.type === 'sub' ? `{--${host.a}--}${tail}` : '';
+  return { text: splice(text, host.start, host.end, md), caret: at(host.start), coalesce: 'del' };
+}
+
 /* -------------------------------------------------------------------------- */
 /* Deliberate annotations, reasons, removal                                    */
 /* -------------------------------------------------------------------------- */

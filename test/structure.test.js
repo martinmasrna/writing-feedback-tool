@@ -75,7 +75,7 @@ test('structural edits refuse to touch code blocks', () => {
 test('changing heading level is one tracked substitution', () => {
   const text = '## Background';
   const r = setHeadingLevel(text, at(5), 3);
-  assert.equal(r.text, '{~~##~>###~~} Background');
+  assert.equal(r.text, '{~~## ~>### ~~}Background');
   assert.equal(transform(r.text, 'accepted'), '### Background');
   assert.equal(transform(r.text, 'rejected'), text);
 });
@@ -147,4 +147,45 @@ test('a document restructured this way still rejects back to the original', () =
   text = toggleBullet(text, at(text.indexOf('Run the') + 2)).text;
   assert.equal(transform(text, 'rejected'), original);
   assert.equal(transform(text, 'accepted'), '## Setup steps\n\n- Install the CLI.\n- Run the migration.\n');
+});
+
+/* --- block types are exclusive -------------------------------------------- */
+
+const conversions = [
+  ['paragraph to bullet',    'Plain text.\n',  (t) => toggleBullet(t, at(3)),                    '- Plain text.\n'],
+  ['paragraph to numbered',  'Plain text.\n',  (t) => toggleBullet(t, at(3), { ordered: true }), '1. Plain text.\n'],
+  ['bullet off',             '- Item.\n',      (t) => toggleBullet(t, at(4)),                    'Item.\n'],
+  ['bullet to numbered',     '- Item.\n',      (t) => toggleBullet(t, at(4), { ordered: true }), '1. Item.\n'],
+  ['numbered to bullet',     '1. Item.\n',     (t) => toggleBullet(t, at(5)),                    '- Item.\n'],
+  ['heading to bullet',      '## Title\n',     (t) => toggleBullet(t, at(5)),                    '- Title\n'],
+  ['bullet to heading',      '- Item.\n',      (t) => setHeadingLevel(t, at(4), 2),              '## Item.\n'],
+  ['heading to heading',     '## Title\n',     (t) => setHeadingLevel(t, at(5), 3),              '### Title\n'],
+  ['heading to body text',   '## Title\n',     (t) => setHeadingLevel(t, at(5), 0),              'Title\n'],
+  ['blockquote to heading',  '> Quoted.\n',    (t) => setHeadingLevel(t, at(4), 2),              '## Quoted.\n'],
+  ['blockquote to bullet',   '> Quoted.\n',    (t) => toggleBullet(t, at(4)),                    '- Quoted.\n'],
+];
+
+for (const [name, original, run, expected] of conversions) {
+  test(`${name} replaces the marker rather than stacking it`, () => {
+    const r = run(original);
+    assert.ok(r && r.text, `${name} did nothing`);
+    assert.equal(transform(r.text, 'accepted'), expected);
+    assert.equal(transform(r.text, 'rejected'), original, 'and still rejects to the original');
+  });
+}
+
+test('converting twice returns to where it started', () => {
+  const first = toggleBullet('Plain text.\n', at(3));
+  const second = setHeadingLevel(first.text, at(first.caret.start), 2);
+  const third = toggleBullet(second.text, at(second.caret.start));
+  assert.equal(transform(third.text, 'accepted'), '- Plain text.\n');
+  assert.equal(transform(third.text, 'rejected'), 'Plain text.\n');
+  assert.equal(parseBlocks(third.text).filter((b) => b.type === 'listItem').length, 1, 'one marker, not three');
+});
+
+test('a marker mid-change is rewritten, never nested', () => {
+  const added = toggleBullet('Plain text.\n', at(3));
+  const converted = setHeadingLevel(added.text, at(added.caret.start), 2);
+  assert.equal(converted.text, '{++## ++}Plain text.\n', 'the insertion is rewritten in place');
+  assert.equal(transform(converted.text, 'rejected'), 'Plain text.\n');
 });

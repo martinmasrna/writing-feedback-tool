@@ -68,84 +68,90 @@ function guard(text, caret) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Bullets                                                                     */
+/* Block markers                                                               */
 /* -------------------------------------------------------------------------- */
 
+/** A block's marker — the `- `, `1. `, `## ` or `> ` — or null for a paragraph. */
+function markerOf(text, block) {
+  if (block.markerStart === undefined || block.contentStart <= block.markerStart) return null;
+  return {
+    start: block.markerStart,
+    end: block.contentStart,
+    text: text.slice(block.markerStart, block.contentStart),
+  };
+}
+
 /**
- * Turn a paragraph into a list item, or a list item back into a paragraph.
- * @param {{ordered?:boolean}} opts
+ * Give a block a different marker, tracked. `next` of `''` removes it.
+ *
+ * Block types are exclusive, as they are in every other editor: making a bullet
+ * into a heading stops it being a bullet. Stacking the markers instead produced
+ * `- ## Title`, which is legal markdown for a list item containing a heading
+ * and never what anybody meant.
+ */
+function applyMarker(text, caret, block, next) {
+  const marker = markerOf(text, block);
+  const mine = marker ? markerAnnotation(text, marker.start) : null;
+  const rewrite = (from, to, md, oldLength) => ({
+    text: splice(text, from, to, md),
+    caret: shift(caret, to, md.length - oldLength),
+    coalesce: null,
+  });
+
+  // A marker already mid-change is rewritten in place, never nested inside a
+  // second annotation.
+  if (mine) {
+    if (!next) return revert(text, caret, mine);
+    const md = mine.type === 'ins' ? `{++${next}++}` : `{~~${mine.a}~>${next}~~}`;
+    return rewrite(mine.start, mine.end, md, mine.end - mine.start);
+  }
+
+  if (!marker) {
+    if (!next) return null;
+    const at = lineStart(text, caret.start);
+    const md = `{++${next}++}`;
+    return { text: splice(text, at, at, md), caret: shift(caret, at, md.length), coalesce: null };
+  }
+
+  if (regionAt(parse(text), marker.start).kind === 'atomic') return { blockedReason: 'markup' };
+  if (marker.text === next) return null;
+  const md = next ? `{~~${marker.text}~>${next}~~}` : `{--${marker.text}--}`;
+  return rewrite(marker.start, marker.end, md, marker.text.length);
+}
+
+/** Blocks that have no marker to change and no content to carry one. */
+const MARKERLESS = new Set(['rule', 'blank', 'unsupported']);
+
+/**
+ * Turn a block into a list item, or a list item back into a paragraph.
+ * Asking for the kind of list it already is toggles it off; asking for the
+ * other kind converts between them.
  */
 export function toggleBullet(text, caret, opts = {}) {
   const g = guard(text, caret);
   if (g.error) return g.error === 'unsupported' ? { blockedReason: 'unsupported' } : null;
   const { block } = g;
+  if (MARKERLESS.has(block.type)) return null;
 
+  const wantOrdered = !!opts.ordered;
+  const marker = wantOrdered ? '1. ' : '- ';
   if (block.type === 'listItem') {
-    const from = block.markerStart;
-    const to = block.contentStart;
-
-    // A marker already mid-change toggles back to untouched, rather than
-    // nesting a second annotation inside the first.
-    const mine = markerAnnotation(text, from);
-    if (mine) return revert(text, caret, mine);
-    if (regionAt(parse(text), from).kind === 'atomic') return { blockedReason: 'markup' };
-
-    const marker = text.slice(from, to);
-    const md = `{--${marker}--}`;
-    return {
-      text: splice(text, from, to, md),
-      caret: shift(caret, to, md.length - marker.length),
-      coalesce: null,
-    };
+    const alreadyThisKind = !!block.ordered === wantOrdered;
+    return applyMarker(text, caret, block, alreadyThisKind ? '' : marker);
   }
-
-  if (block.type !== 'paragraph' && block.type !== 'heading') return null;
-
-  const at = lineStart(text, caret.start);
-  const marker = opts.ordered ? '1. ' : '- ';
-  const md = `{++${marker}++}`;
-  return { text: splice(text, at, at, md), caret: shift(caret, at, md.length), coalesce: null };
+  return applyMarker(text, caret, block, marker);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Headings                                                                    */
-/* -------------------------------------------------------------------------- */
-
-/** Set the heading level of the block at the caret. Level 0 makes it a paragraph. */
+/** Set the heading level of the block at the caret. Level 0 makes it body text. */
 export function setHeadingLevel(text, caret, level) {
   const g = guard(text, caret);
   if (g.error) return g.error === 'unsupported' ? { blockedReason: 'unsupported' } : null;
   const { block } = g;
+  if (MARKERLESS.has(block.type)) return null;
 
-  if (block.type === 'heading') {
-    const hashesFrom = block.markerStart;
-    const hashesTo = hashesFrom + block.level;
-
-    if (level === 0) {
-      const from = block.markerStart;
-      const to = block.contentStart;
-      const mine = markerAnnotation(text, from);
-      if (mine) return revert(text, caret, mine);
-      const marker = text.slice(from, to);
-      const md = `{--${marker}--}`;
-      return { text: splice(text, from, to, md), caret: shift(caret, to, md.length - marker.length), coalesce: null };
-    }
-
-    if (level === block.level) return null;
-    const mine = markerAnnotation(text, hashesFrom);
-    if (mine) return revert(text, caret, mine);
-    const old = text.slice(hashesFrom, hashesTo);
-    if (regionAt(parse(text), hashesFrom).kind === 'atomic') return { blockedReason: 'markup' };
-    const md = `{~~${old}~>${'#'.repeat(level)}~~}`;
-    return { text: splice(text, hashesFrom, hashesTo, md), caret: shift(caret, hashesTo, md.length - old.length), coalesce: null };
-  }
-
-  if (level === 0) return null;
-  if (block.type !== 'paragraph' && block.type !== 'listItem') return null;
-
-  const at = block.type === 'listItem' ? block.contentStart : lineStart(text, caret.start);
-  const md = `{++${'#'.repeat(level)} ++}`;
-  return { text: splice(text, at, at, md), caret: shift(caret, at, md.length), coalesce: null };
+  if (level === 0) return block.type === 'heading' ? applyMarker(text, caret, block, '') : null;
+  if (block.type === 'heading' && block.level === level) return null;
+  return applyMarker(text, caret, block, `${'#'.repeat(level)} `);
 }
 
 /* -------------------------------------------------------------------------- */

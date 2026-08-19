@@ -85,7 +85,7 @@ test('a bullet being deleted still reads as a bullet', () => {
 test('a heading whose level is being changed still reads as a heading', () => {
   const [h] = parseBlocks('{~~##~>###~~} Title');
   assert.equal(h.type, 'heading');
-  assert.equal(h.level, 5, 'both halves are visible, so the marker reads as ##+###');
+  assert.equal(h.level, 3, 'at the level it is becoming, not both halves at once');
 });
 
 test('a change spanning a line break still yields two blocks', () => {
@@ -144,4 +144,10 @@ test('joining survives a round trip through accept and reject', () => {
   const text = '## Title{--\n\n--}Body text';
   assert.equal(transformFor(text, 'accepted'), '## TitleBody text');
   assert.equal(transformFor(text, 'rejected'), '## Title\n\nBody text');
+});
+
+test('a heading mid-level-change reads at the level it is becoming', () => {
+  assert.equal(parseBlocks('{~~##~>#~~} Title')[0].level, 1, 'not 3, which is both halves at once');
+  assert.equal(parseBlocks('{~~#~>####~~} Title')[0].level, 4);
+  assert.equal(parseBlocks('{--### --}Title')[0].type, 'heading', 'a removed marker still reads as one');
 });

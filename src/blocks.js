@@ -17,7 +17,7 @@
  * mangled code fence is worse than one you cannot edit in place.
  */
 
-import { transform } from './criticmarkup.js';
+import { transform, parse } from './criticmarkup.js';
 import { toVisible, toSource } from './visible.js';
 
 /** Everything the rendered view is allowed to edit in place. */
@@ -228,8 +228,30 @@ export function parseBlocks(text) {
       mapped.visible[key] = b[key];
       mapped[key] = toSource(visible, b[key]);
     }
+    if (mapped.type === 'heading') mapped.level = headingLevel(text, mapped);
     return mapped;
   });
+}
+
+/**
+ * A heading's level, read from where the marker is heading rather than from
+ * both halves at once.
+ *
+ * Demoting `##` to `#` leaves `{~~##~>#~~}`, whose visible text is `###` — so
+ * naively the block reads as level 3, a level nobody chose. Take the level the
+ * change is moving toward instead.
+ */
+function headingLevel(text, block) {
+  // Widen to whole annotations, or the slice cuts a delimiter in half and
+  // resolves to nothing.
+  let from = block.markerStart;
+  let to = block.contentStart;
+  for (const a of parse(text)) {
+    if (a.start < to && a.end > from) { from = Math.min(from, a.start); to = Math.max(to, a.end); }
+  }
+  const marker = transform(text.slice(from, to), 'accepted');
+  const hashes = /^\s*(#{1,6})/.exec(marker);
+  return hashes ? hashes[1].length : block.level;
 }
 
 /** The block containing an offset, or the nearest one. */

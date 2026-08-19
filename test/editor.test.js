@@ -15,7 +15,7 @@ test('a realistic editing session stays reversible', () => {
   ed.select('completely').type('largely');
   ed.caretAfter('stopgap').type(' (for now)');
   ed.select('Summary').type('Overview');
-  assertReversible(assert, ed, original);
+  assertReversible(assert, ed);
   assert.equal(ed.accepted, '## Overview\n\nThe loader is a stopgap (for now) that largely rewrites things.\n');
 });
 
@@ -23,13 +23,13 @@ test('Enter opens one blank line per press', () => {
   const ed = editor('## Heading\n\nBody text.\n').caretBefore('Body');
   ed.press('Enter', 3);
   assert.equal(ed.accepted, '## Heading\n\n\n\n\nBody text.\n');
-  assertReversible(assert, ed, '## Heading\n\nBody text.\n');
+  assertReversible(assert, ed);
 });
 
 test('backspace at the top of a block joins it to the one above', () => {
   const ed = editor('## Heading\n\nBody text.\n').caretBefore('Body').press('Backspace');
   assert.equal(ed.accepted, '## HeadingBody text.\n');
-  assertReversible(assert, ed, '## Heading\n\nBody text.\n');
+  assertReversible(assert, ed);
 });
 
 test('deleting a word and typing it back leaves nothing behind', () => {
@@ -63,4 +63,40 @@ test('typing over a selection reads as one replacement', () => {
 test('pasting is one edit, not one per character', () => {
   const ed = editor('start end\n').caretAfter('start').paste(' middle');
   assert.equal(ed.source, 'start{++ middle++} end\n');
+});
+
+/* --- found by the testing agents ------------------------------------------ */
+
+test('backspace at the head of a heading removes the whole marker', () => {
+  const ed = editor('# Heading\n').caretBefore('Heading').press('Backspace');
+  assert.equal(ed.accepted, 'Heading\n', 'not "#Heading", which is not a heading at all');
+  assertReversible(assert, ed);
+});
+
+test('backspace at the head of a list item removes the bullet', () => {
+  const ed = editor('- Item one\n').caretBefore('Item').press('Backspace');
+  assert.equal(ed.accepted, 'Item one\n');
+  assertReversible(assert, ed);
+});
+
+test('Enter at the end of a list starts the next item, not a gap', () => {
+  const ed = editor('- Item\n').caretAtEnd().press('Enter');
+  assert.equal(ed.accepted, '- Item\n- ');
+});
+
+test('Enter inside a list item still splits it into two', () => {
+  const ed = editor('- Item one\n').caretAfter('Item').press('Enter');
+  assert.equal(ed.accepted, '- Item\n-  one\n');
+});
+
+test('rejected is the text underneath, not the string you passed in', () => {
+  const ed = editor('Text with {~~old~>new~~} replacement.\n');
+  assert.equal(ed.original, 'Text with old replacement.\n');
+  assert.equal(ed.rejected, ed.original);
+  assert.equal(ed.accepted, 'Text with new replacement.\n');
+});
+
+test('the harness refuses a caret inside markup', () => {
+  const ed = editor('a {--gone--} b');
+  assert.throws(() => ed.caretAt(5), /inside markup/);
 });

@@ -12,11 +12,24 @@
  *   ed.source;      // the markdown, annotations and all
  *   ed.accepted;    // what the document becomes if every edit is taken
  *   ed.rejected;    // what it was before any of them
+ *   ed.original;    // the document as it stood before this session
+ *
+ * Two things to be clear about, because misreading either produces convincing
+ * nonsense:
+ *
+ * **`rejected` is not `source`.** If you start from a document that already
+ * contains annotations, `rejected` gives the text *underneath* them, not the
+ * string you passed in. Compare against `ed.original`, which is exactly that.
+ *
+ * **Offsets are source offsets.** `ed.caret` indexes `ed.source`, delimiters
+ * included, so typing "X" into "hel|lo" leaves the caret at 7 in
+ * `hel{++X++}lo` — immediately after the X, which is where typing continues.
+ * It is not an offset into the rendered text. `ed.marked` shows it in place.
  */
 
 import { applyAction, moveCaret } from '../src/editor.js';
 import { normalize } from '../src/edits.js';
-import { transform } from '../src/criticmarkup.js';
+import { transform, parse, regionAt } from '../src/criticmarkup.js';
 
 const KEYS = {
   Enter: { type: 'insertParagraph' },
@@ -29,6 +42,7 @@ const KEYS = {
 
 export function editor(initial, options = {}) {
   let text = initial;
+  const original = transform(initial, 'rejected');
   let caret = { start: 0, end: 0 };
   const view = options.view || 'rendered';
   const log = [];
@@ -37,6 +51,8 @@ export function editor(initial, options = {}) {
     get source() { return text; },
     get accepted() { return transform(text, 'accepted'); },
     get rejected() { return transform(text, 'rejected'); },
+    /** The document before this session — what `rejected` must always equal. */
+    get original() { return original; },
     get caret() { return { ...caret }; },
     get history() { return log.slice(); },
 
@@ -45,7 +61,19 @@ export function editor(initial, options = {}) {
 
     /* --- placing the caret ------------------------------------------------ */
 
-    caretAt(offset) { caret = { start: offset, end: offset }; return api; },
+    /**
+     * Place the caret. Offsets are into `source`. Positions inside markup are
+     * refused: the editor never puts the caret there, so a test that starts
+     * from one is testing a state no user can reach.
+     */
+    caretAt(offset) {
+      if (offset < 0 || offset > text.length) throw new Error(`caretAt: ${offset} is outside the document (0..${text.length})`);
+      if (regionAt(parse(text), offset).kind === 'atomic') {
+        throw new Error(`caretAt: ${offset} is inside markup — ${JSON.stringify(`${text.slice(0, offset)}|${text.slice(offset)}`)}`);
+      }
+      caret = { start: offset, end: offset };
+      return api;
+    },
     caretBefore(needle) {
       const i = text.indexOf(needle);
       if (i < 0) throw new Error(`caretBefore: ${JSON.stringify(needle)} not found in ${JSON.stringify(text)}`);
@@ -57,13 +85,28 @@ export function editor(initial, options = {}) {
       return api.caretAt(i + needle.length);
     },
     caretAtEnd() { return api.caretAt(text.length); },
+    /**
+     * Select a run of text the way a user would — by dragging over it.
+     *
+     * Occurrences buried inside markup are skipped: `indexOf` happily finds
+     * "Para" inside `{--Para--}`, but that text is contenteditable="false" on
+     * screen, so no selection can start there and a test built on one proves
+     * nothing about the real editor.
+     */
     select(needle) {
-      const i = text.indexOf(needle);
-      if (i < 0) throw new Error(`select: ${JSON.stringify(needle)} not found in ${JSON.stringify(text)}`);
-      caret = { start: i, end: i + needle.length };
+      const anns = parse(text);
+      for (let i = text.indexOf(needle); i >= 0; i = text.indexOf(needle, i + 1)) {
+        const end = i + needle.length;
+        const buried = anns.some((a) => i < a.end && end > a.start);
+        if (!buried) { caret = { start: i, end }; return api; }
+      }
+      throw new Error(`select: no selectable ${JSON.stringify(needle)} in ${JSON.stringify(text)}`);
+    },
+    selectRange(start, end) {
+      if (start < 0 || end > text.length || start > end) throw new Error(`selectRange: ${start}..${end} is not a valid range of 0..${text.length}`);
+      caret = { start, end };
       return api;
     },
-    selectRange(start, end) { caret = { start, end }; return api; },
 
     /* --- acting ------------------------------------------------------------ */
 
@@ -109,7 +152,7 @@ export function editor(initial, options = {}) {
  * gives back exactly the document you started with. If this ever fails, the
  * tool has destroyed someone's text.
  */
-export function assertReversible(assert, ed, original) {
-  assert.equal(ed.rejected, original,
+export function assertReversible(assert, ed) {
+  assert.equal(ed.rejected, ed.original,
     `rejecting every change should restore the original\n  history: ${ed.history.join(' → ')}`);
 }

@@ -33,10 +33,32 @@ export function paragraphBreak(text, caret, view) {
   const block = blockAt(parseBlocks(text), at);
   if (block && block.type === 'listItem') {
     const marker = text.slice(block.markerStart, block.contentStart);
-    return `\n${' '.repeat(block.indent || 0)}${block.ordered ? '1. ' : marker.trimStart()}`;
+    const next = `${' '.repeat(block.indent || 0)}${block.ordered ? '1. ' : marker.trimStart()}`;
+    // Past the end of the item we are already on a fresh line; adding another
+    // break would leave a blank line between the two bullets.
+    return caret.start > block.end ? next : `\n${next}`;
   }
   const atBoundary = !block || block.type === 'blank' || at <= block.contentStart;
   return atBoundary ? '\n' : '\n\n';
+}
+
+/**
+ * The block marker backspace should remove when the caret sits at the very
+ * start of a block's content.
+ *
+ * Deleting one character there strips the space out of `# ` or `- `, leaving
+ * `#Heading` — not a heading any more, and not valid markdown either. Every
+ * editor removes the whole marker instead, turning the block back into body
+ * text. Only in the rendered view: in Source the marker is visible text and
+ * backspace should behave literally.
+ */
+export function markerBefore(text, caret, view) {
+  if (view !== 'rendered') return null;
+  const block = blockAt(parseBlocks(text), caret.start);
+  if (!block || block.markerStart === undefined) return null;
+  if (caret.start !== block.contentStart) return null;
+  if (block.contentStart <= block.markerStart) return null;
+  return { start: block.markerStart, end: block.contentStart };
 }
 
 /**
@@ -77,6 +99,12 @@ export function applyAction(state, action) {
 
     case 'deleteBackward': {
       if (!collapsed(sel)) return edits.deleteRange(text, sel, 'back');
+      // At the head of a block, take the whole marker rather than a character of it.
+      const marker = markerBefore(text, sel, view);
+      if (marker) {
+        const removed = edits.deleteRange(text, marker, 'back');
+        if (removed && !removed.blocked) return removed;
+      }
       const join = blockJoinBefore(text, sel, view);
       return join ? edits.deleteRange(text, join, 'back') : edits.deleteBackward(text, sel.start);
     }

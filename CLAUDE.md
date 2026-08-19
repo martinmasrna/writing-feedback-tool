@@ -74,6 +74,13 @@ Two limits, both deliberate. Cancellation only fires when one side genuinely con
 
 **Rules go in the pure modules; `app.js` only wires.** `criticmarkup.js` and `edits.js` know about strings and offsets and nothing else — no DOM, no globals. That purity is the only reason the editing model is testable, so any new editing behaviour belongs there with a test, not inline in a handler. The editing model is `(text, caret) → (text, caret)`; keep it that way.
 
+**Test through `test/harness.js`, and only from states a user can reach.** It drives the real editor headlessly — type, press, select, paste — so anything it proves is true of the app. Two traps have now caught four separate attempts at testing this thing, including mine:
+
+- `rejected` is not `source`. On a document that already contains annotations it returns the text *underneath* them. Compare against `ed.original`.
+- Offsets index `source`, delimiters included. The caret after typing "X" into `hel|lo` is 7 in `hel{++X++}lo` — right after the X, which is correct. It is not an offset into the rendered text.
+
+The harness now refuses a caret inside markup and skips selections buried in it, because a test built on an unreachable state proves nothing and reads exactly like a real bug.
+
 **Every editing rule gets a test.** `npm test` runs Node's own test runner with no browser and no deps. The merge rules especially — holding ⌫ growing one deletion instead of a chain, a typing burst producing one insertion, an emptied substitution collapsing back to a deletion — are subtle, easy to regress, and cheap to cover. A browser check is not a substitute; it is the thing you do *after*.
 
 **`dist/index.html` is generated. Never edit it by hand.** Run `npm run build`. It is committed on purpose: the product is a file you double-click from disk, so a clone has to be immediately usable without a build.

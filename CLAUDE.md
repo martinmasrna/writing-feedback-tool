@@ -12,13 +12,28 @@ around it, and don't reopen the question unasked.
 
 **The annotated `.md` file is the entire state.** No database, no export step. Annotations are re-derived from the text on every change rather than stored beside it, so the file and the UI cannot drift apart. If you find yourself caching parsed annotations anywhere but `state.js`, stop.
 
-## Two invariants hold the design up
+## Three invariants hold the design up
 
-Break either one and the editor corrupts documents. Read these before touching `src/dom/` or `src/input.js`.
+Break any one and the editor corrupts documents. Read these before touching `src/dom/`, `src/visible.js` or `src/input.js`.
 
-**Every source character is rendered exactly once, in order.** Delimiters are dimmed, never hidden. This is what makes DOM-position → source-offset a running sum over text nodes (`dom/offsets.js`). Anything on screen that is *not* backed by source text — the `NO REASON` chip — must carry `data-virtual` so the offset walker skips it.
+**CriticMarkup is resolved before markdown is parsed.** `visible.js` turns the source into the text a reader sees — delimiters gone, both halves of every change kept — plus an offset map back to the source and a list of change ranges. Blocks and inline markdown are parsed on *that*, never on the raw source, and change styling is painted on afterwards by splitting text at range boundaries.
 
-**The browser never mutates the document.** `#doc` is `contenteditable`, but every `beforeinput` is cancelled and translated into an operation on the markdown string, which is then re-rendered from scratch. Anything that must not be edited — delimiters, struck text, comment chips — is `contenteditable="false"` so the caret cannot get inside markup. Never let a browser-native edit through.
+This is not a refactor for tidiness. Parsing the two grammars together is what made `{++\n- ++}` leak `{++` onto the screen, broke `*italic*` when an edit landed inside it, and broke `` `code` `` the same way. One delimiter in the middle of a construct the markdown parser is trying to match breaks the match. Resolve first, always.
+
+**Every text node the renderer creates carries a source mapping.** The source view can map DOM to source with a running sum because it renders every character; the rendered view drops `**` and `#` from the screen, so it emits explicit mappings instead (`dom/offsets.js` takes either). Anything on screen *not* backed by source text — bullets, comment chips, the `NO REASON` marker, island labels — must carry `data-virtual` so the caret cannot address it.
+
+**The browser never mutates the document.** `#doc` is `contenteditable`, but every `beforeinput` is cancelled and translated into an operation on the markdown string, which is then re-rendered from scratch. Anything that must not be edited — struck text, comment chips, unsupported blocks — is `contenteditable="false"` so the caret cannot get inside markup. Never let a browser-native edit through.
+
+## The rendering pipeline
+
+```
+source ──▶ visible document ──▶ blocks ──▶ inline ──▶ DOM
+           (visible.js)         (blocks)   (inline)   (dom/render-rendered.js)
+```
+
+Each stage only ever sees the output of the one before it. `blocks.js` and `inline.js` know nothing about CriticMarkup — that is the point.
+
+Structure is parsed here rather than by a markdown library for one decisive reason: **a block marker can itself be a tracked change.** `{++- ++}Some text` is a bullet that was added and must render as a bullet, tinted. A general parser sees no list there at all.
 
 ## What to read, and when
 
@@ -27,6 +42,10 @@ Break either one and the editor corrupts documents. Read these before touching `
 | task | context |
 |---|---|
 | the markup syntax, parsing, offsets | `src/criticmarkup.js` — pure, and the vocabulary everything else uses |
+| anything about how the rendered view sees the document | `src/visible.js` — read this before `blocks.js` or `inline.js` |
+| block structure, list markers, headings | `src/blocks.js` |
+| bold, italic, code, links | `src/inline.js` |
+| adding or removing a bullet, heading level, emphasis | `src/structure.js` |
 | what a keystroke does | `src/edits.js` — pure; the merge rules live here |
 | caret lands in the wrong place after an edit | `src/dom/offsets.js`, then the two invariants above |
 | a keystroke does nothing or the wrong thing | `src/input.js` — the `beforeinput` switch |
@@ -61,6 +80,10 @@ npm run build       # → dist/index.html, self-contained
 
 Typing must be driven with **real** key events. Synthetic `KeyboardEvent`s do not fire `beforeinput`, so they silently test nothing.
 
+**Bind shortcuts on `e.code`, not `e.key`.** With Shift held the 8 key reports `*` and the 7 key `&` on a US layout, and Alt produces dead keys and symbols on most layouts. A shortcut matched on `e.key` can pass an automated test that sends the digit and still never fire for a real person.
+
+**Chrome caches ES modules across reloads.** After editing `src/`, a plain reload can leave the page running a mix of old and new modules, which surfaces as baffling errors like `blocks is not iterable`. Reload with a query string (`/index.html?v=<now>`) when results stop making sense.
+
 Two things will freeze an automated session: the native `confirm()` on dropping a file while there are unsaved changes, and the `beforeunload` guard on navigating away. Save or undo to a clean state first.
 
 ## Out of scope
@@ -68,7 +91,7 @@ Two things will freeze an automated session: the native `confirm()` on dropping 
 Do not build these without being asked. They were considered and cut.
 
 - **Accepting or rejecting annotations.** A different tool's job. `Accepted`/`Rejected` in the header are previews only.
-- **A rendered-markdown editing view.** Selection must map one-to-one onto source offsets; mapping a rendered view back to source is explicitly out.
+- **Markdown beyond the closed set.** Headings, paragraphs, bold, italic, inline code, links, bullet and numbered lists, blockquotes, rules. Code fences, tables and raw HTML render as read-only islands and are edited in the Source view. Never guess at structure — a mangled code fence is worse than one you cannot edit in place.
 - Multi-file management, git integration, sync, collaboration, mobile, any backend or account.
 
 ## Git

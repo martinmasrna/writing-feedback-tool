@@ -2,11 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseInline, flatten } from '../src/inline.js';
 
-/** Every inline node of a plain run, for terse assertions. */
-const nodesOf = (text) => {
-  const segs = parseInline(text, 0, text.length);
-  return segs.flatMap((s) => (s.kind === 'inline' ? s.nodes : [{ type: `cm:${s.type}` }]));
-};
+const nodesOf = (text) => parseInline(text, 0, text.length);
 const types = (text) => nodesOf(text).map((n) => n.type);
 
 test('plain text is one node', () => {
@@ -58,52 +54,17 @@ test('unmatched markers stay literal text', () => {
   assert.deepEqual(types('2 * 3 * 4'), ['text']);
 });
 
-/* --- interaction with tracked changes ------------------------------------ */
-
-test('CriticMarkup is segmented before inline parsing', () => {
-  const text = 'a {--gone--} b';
-  const segs = parseInline(text, 0, text.length);
-  assert.deepEqual(segs.map((s) => s.kind), ['inline', 'markup', 'inline']);
-  assert.equal(segs[1].type, 'del');
-});
-
-test('formatting inside a tracked change is still formatting', () => {
-  const text = '{--**bold gone**--}';
-  const [seg] = parseInline(text, 0, text.length);
-  assert.equal(seg.kind, 'markup');
-  assert.equal(seg.body.nodes[0].type, 'strong');
-  assert.equal(text.slice(seg.body.nodes[0].contentStart, seg.body.nodes[0].contentEnd), 'bold gone');
-});
-
-test('a substitution exposes both halves with offsets', () => {
-  const text = '{~~old *word*~>new **word**~~}';
-  const [seg] = parseInline(text, 0, text.length);
-  assert.equal(text.slice(seg.old.start, seg.old.end), 'old *word*');
-  assert.equal(text.slice(seg.next.start, seg.next.end), 'new **word**');
-  assert.ok(seg.old.nodes.some((n) => n.type === 'em'));
-  assert.ok(seg.next.nodes.some((n) => n.type === 'strong'));
-});
-
-test('emphasis never straddles an annotation boundary', () => {
-  const text = '**start {--mid--} end**';
-  const segs = parseInline(text, 0, text.length);
-  assert.equal(segs.length, 3, 'split by the annotation, so no strong node spans it');
-  assert.equal(segs.every((s) => !(s.nodes || []).some((n) => n.type === 'strong')), true);
-});
-
 /* --- offsets -------------------------------------------------------------- */
 
 test('flattened text nodes reconstruct the visible text in order', () => {
   const text = 'a **b** and [c](u)';
-  const segs = parseInline(text, 0, text.length);
-  const visible = flatten(segs.flatMap((s) => s.nodes)).map((n) => text.slice(n.start, n.end)).join('');
+  const visible = flatten(parseInline(text, 0, text.length)).map((n) => text.slice(n.start, n.end)).join('');
   assert.equal(visible, 'a b and c');
 });
 
 test('offsets are absolute when parsing a sub-range', () => {
   const text = 'PREFIX **bold** SUFFIX';
-  const segs = parseInline(text, 7, 15);
-  const strong = segs[0].nodes[0];
+  const [strong] = parseInline(text, 7, 15);
   assert.equal(strong.type, 'strong');
   assert.equal(text.slice(strong.start, strong.end), '**bold**');
 });

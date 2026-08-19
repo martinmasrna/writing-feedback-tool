@@ -18,6 +18,7 @@
  */
 
 import { transform } from './criticmarkup.js';
+import { toVisible, toSource } from './visible.js';
 
 /** Everything the rendered view is allowed to edit in place. */
 export const SUPPORTED = new Set(['paragraph', 'heading', 'listItem', 'blockquote', 'rule', 'blank']);
@@ -51,54 +52,9 @@ export function splitLines(text) {
   return lines;
 }
 
-/**
- * What does this line look like once its tracked changes are resolved?
- *
- * A marker that is being inserted (`{++- ++}text`) should already behave as a
- * marker; one that is being deleted (`{--- --}text`) should still behave as a
- * marker until the change is accepted. So we classify against the text with all
- * markup *stripped but kept* — both halves present — which is what the reader
- * sees on screen.
- */
-function visibleText(line) {
-  // Keep insertions and deletions both visible; drop only the delimiters.
-  return line
-    .replace(/\{\+\+([\s\S]*?)\+\+\}/g, '$1')
-    .replace(/\{--([\s\S]*?)--\}/g, '$1')
-    .replace(/\{~~([\s\S]*?)~>([\s\S]*?)~~\}/g, '$1$2')
-    .replace(/\{==([\s\S]*?)==\}/g, '$1')
-    .replace(/\{>>[\s\S]*?<<\}/g, '');
-}
-
-/**
- * Map an offset in a line's visible text back to an offset in its raw text.
- * Walks both in step, skipping delimiters and comment bodies.
- */
-export function visibleToRaw(raw, visibleOffset) {
-  const DELIMS = ['{++', '++}', '{--', '--}', '{~~', '~~}', '{==', '==}', '~>'];
-  let v = 0;
-  let i = 0;
-  while (i < raw.length) {
-    // Step over markup *before* testing the position, so the offset we return
-    // always lands on a real character rather than inside a delimiter.
-    if (raw.startsWith('{>>', i)) {
-      const close = raw.indexOf('<<}', i);
-      i = close < 0 ? raw.length : close + 3;
-      continue;
-    }
-    const d = DELIMS.find((x) => raw.startsWith(x, i));
-    if (d) { i += d.length; continue; }
-    if (v === visibleOffset) return i;
-    i++;
-    v++;
-  }
-  return i;
-}
-
-/** Classify one line. Offsets returned are absolute source offsets. */
+/** Classify one line of the visible document. Offsets are visible offsets. */
 function classify(line) {
-  const raw = line.text;
-  const vis = visibleText(raw);
+  const vis = line.text;
   const base = line.start;
 
   if (HTML_BLOCK.test(vis)) return { type: 'unsupported', reason: 'html', vis };
@@ -111,9 +67,9 @@ function classify(line) {
     return {
       type: 'heading',
       level: heading[1].length,
-      contentStart: base + visibleToRaw(raw, markerVisEnd),
-      markerEnd: base + visibleToRaw(raw, markerVisEnd),
-      markerStart: base + visibleToRaw(raw, 0),
+      contentStart: base + markerVisEnd,
+      markerEnd: base + markerVisEnd,
+      markerStart: base + 0,
       vis,
     };
   }
@@ -128,9 +84,9 @@ function classify(line) {
       marker: bullet[2],
       depth: Math.floor(indent / 2),
       indent,
-      markerStart: base + visibleToRaw(raw, indent),
-      markerEnd: base + visibleToRaw(raw, markerVisEnd),
-      contentStart: base + visibleToRaw(raw, markerVisEnd),
+      markerStart: base + indent,
+      markerEnd: base + markerVisEnd,
+      contentStart: base + markerVisEnd,
       vis,
     };
   }
@@ -146,9 +102,9 @@ function classify(line) {
       number: Number(ordered[2]),
       depth: Math.floor(indent / 2),
       indent,
-      markerStart: base + visibleToRaw(raw, indent),
-      markerEnd: base + visibleToRaw(raw, markerVisEnd),
-      contentStart: base + visibleToRaw(raw, markerVisEnd),
+      markerStart: base + indent,
+      markerEnd: base + markerVisEnd,
+      contentStart: base + markerVisEnd,
       vis,
     };
   }
@@ -158,9 +114,9 @@ function classify(line) {
     const markerVisEnd = quote[1].length + quote[2].length;
     return {
       type: 'blockquote',
-      markerStart: base + visibleToRaw(raw, quote[1].length),
-      markerEnd: base + visibleToRaw(raw, markerVisEnd),
-      contentStart: base + visibleToRaw(raw, markerVisEnd),
+      markerStart: base + quote[1].length,
+      markerEnd: base + markerVisEnd,
+      contentStart: base + markerVisEnd,
       vis,
     };
   }
@@ -175,12 +131,12 @@ function classify(line) {
  * continuation); everything else is one block per line. A table is detected by
  * its delimiter row and swallows the surrounding pipe lines.
  */
-export function parseBlocks(text) {
-  const lines = splitLines(text);
+export function parseVisibleBlocks(visibleText) {
+  const lines = splitLines(visibleText);
   const classified = [];
   let insideFence = false;
   for (const line of lines) {
-    const vis = visibleText(line.text);
+    const vis = line.text;
     if (insideFence) {
       classified.push({ line, info: { type: 'unsupported', reason: 'code', vis } });
       if (FENCE.test(vis)) insideFence = false;   // the closing fence
@@ -233,6 +189,31 @@ export function parseBlocks(text) {
     blocks.push(block);
   }
   return blocks;
+}
+
+/** Offsets on a block that must be translated from visible to source. */
+const OFFSETS = ['start', 'end', 'contentStart', 'contentEnd', 'markerStart', 'markerEnd'];
+
+/**
+ * Parse block structure, returning source offsets.
+ *
+ * Structure is decided on the visible document — the text with tracked changes
+ * resolved but both halves kept — which is why a bullet whose `- ` is inside an
+ * insertion still reads as a bullet, and why a change spanning a line break
+ * still produces two real lines.
+ */
+export function parseBlocks(text) {
+  const visible = toVisible(text);
+  const blocks = parseVisibleBlocks(visible.text);
+  return blocks.map((b) => {
+    const mapped = { ...b, visible: {} };
+    for (const key of OFFSETS) {
+      if (b[key] === undefined) continue;
+      mapped.visible[key] = b[key];
+      mapped[key] = toSource(visible, b[key]);
+    }
+    return mapped;
+  });
 }
 
 /** The block containing an offset, or the nearest one. */

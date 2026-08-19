@@ -100,13 +100,23 @@ export function attachShortcuts({ undo, redo, save, comment, escape, dialogOpen,
     if (mod && e.altKey && key === 'm') { e.preventDefault(); comment(); return; }
 
     // Structural commands, in the register people already know.
+    //
+    // Match on e.code, not e.key: with Shift held, the 8 key reports '*' and
+    // the 7 key '&' on a US layout, and Alt reports dead keys and symbols on
+    // most layouts. e.code is the physical key and is layout-independent.
+    const digit = /^Digit([0-9])$/.exec(e.code);
+
     if (mod && !e.altKey && key === 'b' && commands.bold) { e.preventDefault(); commands.bold(); return; }
     if (mod && !e.altKey && key === 'i' && commands.italic) { e.preventDefault(); commands.italic(); return; }
-    if (mod && e.shiftKey && key === '8' && commands.bullet) { e.preventDefault(); commands.bullet(); return; }
-    if (mod && e.shiftKey && key === '7' && commands.numbered) { e.preventDefault(); commands.numbered(); return; }
-    if (mod && e.altKey && /^[0-6]$/.test(e.key) && commands.heading) {
+    if (mod && e.shiftKey && !e.altKey && digit && digit[1] === '8' && commands.bullet) {
+      e.preventDefault(); commands.bullet(); return;
+    }
+    if (mod && e.shiftKey && !e.altKey && digit && digit[1] === '7' && commands.numbered) {
+      e.preventDefault(); commands.numbered(); return;
+    }
+    if (mod && e.altKey && digit && Number(digit[1]) <= 6 && commands.heading) {
       e.preventDefault();
-      commands.heading(Number(e.key));
+      commands.heading(Number(digit[1]));
       return;
     }
     if (dialogOpen()) return;

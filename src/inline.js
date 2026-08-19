@@ -5,17 +5,15 @@
  * actually contain — and nothing else. Anything unrecognised stays literal
  * text, which is the safe failure: unstyled prose beats mangled markup.
  *
- * Every node carries absolute source offsets, including its markers (`**`, the
- * backticks, a link's target). The rendered view hides markers as chrome; the
- * source view dims them. Either way they remain real source characters, so the
- * caret can always be mapped back.
+ * This runs over the *visible* document (see visible.js), which has no
+ * CriticMarkup delimiters in it. That matters: when delimiters were still
+ * present, an edit landing inside `*italic*` split the run and the orphaned `*`
+ * showed through as literal text. Resolving tracked changes first means the
+ * markdown parser only ever sees markdown.
  *
- * CriticMarkup is parsed *first* and inline parsing runs inside each resulting
- * run, so `{--**bold**--}` renders as bold and struck through, and emphasis
- * never straddles an annotation boundary.
+ * Every node carries offsets into the text it was given, including its markers,
+ * so a caller can map them wherever it needs to.
  */
-
-import { tokenize } from './criticmarkup.js';
 
 const CODE = /`([^`\n]+)`/;
 const STRONG = /(\*\*|__)(?=\S)([\s\S]*?\S)\1/;
@@ -83,42 +81,9 @@ function parseRun(text, start, end, depth = 0) {
   return nodes;
 }
 
-/**
- * Parse [start,end) into a list of segments.
- *
- * Segments are either `{kind:'inline', nodes}` for ordinary text or
- * `{kind:'markup', token}` for a CriticMarkup construct. A construct's body is
- * itself parsed inline, so tracked changes can contain formatting.
- */
+/** Parse a range of text into inline nodes. */
 export function parseInline(text, start, end) {
-  const region = text.slice(start, end);
-  const tokens = tokenize(region);
-  const segments = [];
-
-  for (const t of tokens) {
-    const from = start + t.start;
-    const to = start + t.end;
-    if (t.type === 'plain') {
-      segments.push({ kind: 'inline', start: from, end: to, nodes: parseRun(text, from, to) });
-      continue;
-    }
-    const seg = { kind: 'markup', type: t.type, start: from, end: to, token: t };
-    // Body offsets, so the body can be parsed inline and still map back.
-    if (t.type === 'sub') {
-      const oldStart = from + 3;
-      const oldEnd = oldStart + t.a.length;
-      const newStart = oldEnd + 2;
-      const newEnd = to - 3;
-      seg.old = { start: oldStart, end: oldEnd, nodes: parseRun(text, oldStart, oldEnd) };
-      seg.next = { start: newStart, end: newEnd, nodes: parseRun(text, newStart, newEnd) };
-    } else {
-      const bodyStart = from + 3;
-      const bodyEnd = to - 3;
-      seg.body = { start: bodyStart, end: bodyEnd, nodes: parseRun(text, bodyStart, bodyEnd) };
-    }
-    segments.push(seg);
-  }
-  return segments;
+  return parseRun(text, start, end);
 }
 
 /** Flatten to the text nodes a renderer will emit, in order, with their offsets. */

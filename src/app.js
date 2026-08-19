@@ -95,7 +95,7 @@ export function createApp() {
       doc.setAttribute('contenteditable', 'true');
       doc.classList.remove('readonly');
       doc.textContent = '';
-      const { fragment, mappings } = buildRendered(state.text, parseBlocks(state.text));
+      const { fragment, mappings } = buildRendered(state.text);
       doc.append(fragment);
       offsets.reindex(mappings);
     } else if (state.view === 'source') {

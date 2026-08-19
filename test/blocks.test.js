@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBlocks, splitLines, visibleToRaw, blockAt, fullySupported, SUPPORTED } from '../src/blocks.js';
+import { parseBlocks, splitLines, blockAt, fullySupported, SUPPORTED } from '../src/blocks.js';
 
 const kinds = (text) => parseBlocks(text).map((b) => b.type);
 
@@ -87,17 +87,20 @@ test('a heading whose level is being changed still reads as a heading', () => {
   assert.equal(h.level, 5, 'both halves are visible, so the marker reads as ##+###');
 });
 
+test('a change spanning a line break still yields two blocks', () => {
+  const blocks = parseBlocks('- one{++\n- ++}two');
+  assert.deepEqual(blocks.map((b) => b.type), ['listItem', 'listItem']);
+});
+
+test('block offsets come back in source coordinates', () => {
+  const src = '{++- ++}Some text';
+  const [b] = parseBlocks(src);
+  assert.equal(src.slice(b.contentStart), 'Some text');
+});
+
 test('a reason comment does not disturb classification', () => {
   const [b] = parseBlocks('- item{>>why<<}');
   assert.equal(b.type, 'listItem');
-});
-
-test('visibleToRaw lands on real characters, never inside a delimiter', () => {
-  const raw = '{++- ++}Some text';
-  assert.equal(raw.slice(visibleToRaw(raw, 0)), '- ++}Some text', 'first visible char is the marker');
-  assert.equal(raw.slice(visibleToRaw(raw, 2)), 'Some text', 'skips the closing delimiter');
-  const sub = '{~~a~>b~~}tail';
-  assert.equal(sub.slice(visibleToRaw(sub, 2)), 'tail');
 });
 
 /* --- helpers -------------------------------------------------------------- */

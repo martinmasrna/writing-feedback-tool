@@ -217,10 +217,15 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 /* Block markers caught up in a tracked change. */
 #doc.rendered li.marker-ins::marker{color:var(--ins)}
 #doc.rendered li.marker-del::marker{color:var(--del)}
-#doc.rendered li.marker-del{text-decoration:line-through;text-decoration-color:var(--del-ln)}
-#doc.rendered li.marker-ins,#doc.rendered li.marker-del{
+#doc.rendered li.marker-ins,#doc.rendered li.marker-del,#doc.rendered li.marker-sub{
   position:relative;
 }
+/* The bullet is what changed, not the prose — mark the bullet. */
+#doc.rendered li.marker-del::marker{content:'\2715  '}
+#doc.rendered li.marker-ins{background:linear-gradient(90deg,var(--ins-bg),transparent 42%);
+  border-radius:3px}
+#doc.rendered li.marker-del{background:linear-gradient(90deg,var(--del-bg),transparent 42%);
+  border-radius:3px}
 #doc.rendered li.marker-ins::before,#doc.rendered li.marker-del::before,
 #doc.rendered h1.marker-ins::before,#doc.rendered h2.marker-ins::before,
 #doc.rendered h3.marker-ins::before,#doc.rendered h1.marker-sub::before,

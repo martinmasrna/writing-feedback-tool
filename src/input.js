@@ -8,12 +8,13 @@
  */
 
 import * as edits from './edits.js';
+import { applyAction, moveCaret } from './editor.js';
 
 /**
  * @param {(sel:{start,end}) => any} read      current selection in source offsets
  * @param {(result:any) => string}   apply     hand a result to the store
  */
-export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, onComposedRender, paragraphBreak, setCaret, stepInView, joinBlocksBefore }) {
+export function attachInput(doc, { read, apply, getText, getView, canEdit, undo, redo, onComposedRender, setCaret, stepInView }) {
   doc.addEventListener('beforeinput', (e) => {
     if (!canEdit()) { e.preventDefault(); return; }
     // Composition is handled at compositionend; cancelling it here breaks IME.
@@ -22,56 +23,28 @@ export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, on
     e.preventDefault();
     const sel = read();
     if (!sel) return;
-    const text = getText();
-    const caret = sel.start;
+    const state = { text: getText(), caret: sel, view: getView() };
 
     switch (e.inputType) {
-      case 'insertText':
-        apply(edits.insert(text, sel, e.data || ''));
-        break;
-      case 'insertParagraph':
-        apply(edits.insert(text, sel, paragraphBreak ? paragraphBreak() : '\n'));
-        break;
-      case 'insertLineBreak':
-        apply(edits.insert(text, sel, '\n'));
-        break;
+      case 'insertText':        apply(applyAction(state, { type: 'insertText', data: e.data || '' })); break;
+      case 'insertParagraph':   apply(applyAction(state, { type: 'insertParagraph' })); break;
+      case 'insertLineBreak':   apply(applyAction(state, { type: 'insertLineBreak' })); break;
       case 'insertFromPaste':
       case 'insertFromDrop':
       case 'insertReplacementText': {
         const data = e.dataTransfer ? e.dataTransfer.getData('text/plain') : e.data || '';
-        if (data) apply(edits.insert(text, sel, data));
+        apply(applyAction(state, { type: 'paste', data }));
         break;
       }
-      case 'deleteContentBackward': {
-        if (sel.end > sel.start) { apply(edits.deleteRange(text, sel, 'back')); break; }
-        // At the top of a block, backspace joins it to the one above — which
-        // means removing the whole separator, not one newline of it. Deleting
-        // half a blank line changes nothing anyone can see.
-        const join = joinBlocksBefore ? joinBlocksBefore(caret) : null;
-        apply(join ? edits.deleteRange(text, join, 'back') : edits.deleteBackward(text, caret));
-        break;
-      }
-      case 'deleteContentForward':
-        apply(sel.end > sel.start ? edits.deleteRange(text, sel, 'fwd') : edits.deleteForward(text, caret));
-        break;
-      case 'deleteWordBackward':
-        apply(sel.end > sel.start ? edits.deleteRange(text, sel, 'back') : edits.deleteWordBackward(text, caret));
-        break;
-      case 'deleteWordForward':
-        apply(sel.end > sel.start ? edits.deleteRange(text, sel, 'fwd') : edits.deleteWordForward(text, caret));
-        break;
+      case 'deleteContentBackward':     apply(applyAction(state, { type: 'deleteBackward' })); break;
+      case 'deleteContentForward':      apply(applyAction(state, { type: 'deleteForward' })); break;
+      case 'deleteWordBackward':        apply(applyAction(state, { type: 'deleteWordBackward' })); break;
+      case 'deleteWordForward':         apply(applyAction(state, { type: 'deleteWordForward' })); break;
       case 'deleteSoftLineBackward':
-      case 'deleteHardLineBackward':
-        apply(sel.end > sel.start ? edits.deleteRange(text, sel, 'back') : edits.deleteLineBackward(text, caret));
-        break;
-      case 'historyUndo':
-        undo();
-        break;
-      case 'historyRedo':
-        redo();
-        break;
-      default:
-        break;
+      case 'deleteHardLineBackward':    apply(applyAction(state, { type: 'deleteLineBackward' })); break;
+      case 'historyUndo':               undo(); break;
+      case 'historyRedo':               redo(); break;
+      default: break;
     }
   });
 
@@ -88,14 +61,18 @@ export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, on
     const dir = e.key === 'ArrowLeft' ? -1 : 1;
 
     // A collapsed caret steps; a selection collapses to the edge you moved toward.
+    // The rendered view knows about positions that do not exist on screen;
+    // ask it first, and fall back to the view-independent rule.
+    const text = getText();
     const from = sel.end > sel.start ? (dir < 0 ? sel.start : sel.end) : sel.start;
-    const target = sel.end > sel.start
-      ? from
-      : (stepInView ? stepInView(from, dir) : null) ?? edits.stepCaret(getText(), from, dir);
-    if (target === sel.start && target === sel.end) return;         // already at the end of the document
+    const inView = sel.end > sel.start ? null : (stepInView ? stepInView(from, dir) : null);
+    const next = inView !== null && inView !== undefined
+      ? { start: inView, end: inView }
+      : moveCaret(text, sel, dir);
+    if (next.start === sel.start && next.end === sel.end) return;   // already at the end
 
     e.preventDefault();
-    setCaret({ start: target, end: target });
+    setCaret(next);
   });
 
   // IME: let the browser compose freely, then discard its DOM edit and apply the

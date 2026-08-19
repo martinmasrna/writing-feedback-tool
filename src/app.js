@@ -276,37 +276,13 @@ export function createApp() {
     read: () => offsets.readSelection(),
     apply: applyResult,
     getText: () => store.state.text,
+    getView: () => store.state.view,
     canEdit: () => store.state.loaded && editableView(),
     undo: () => store.undo(),
     redo: () => store.redo(),
     onComposedRender: render,
     setCaret: (caret) => { store.setCaret(caret); offsets.writeSelection(caret); },
     stepInView: (offset, dir) => offsets.step(offset, dir),
-    joinBlocksBefore: (offset) => {
-      if (store.state.view !== 'rendered') return null;   // in Source, newlines are real characters
-      const text = store.state.text;
-      let start = offset;
-      while (start > 0 && text.charAt(start - 1) === '\n') start--;
-      return start < offset ? { start, end: offset } : null;
-    },
-    // Enter means "new block" in the rendered view, and continues a list.
-    paragraphBreak: () => {
-      if (store.state.view !== 'rendered') return '\n';
-      const text = store.state.text;
-      const at = store.state.caret.start;
-      const block = blockAt(parseBlocks(text), at);
-      if (block && block.type === 'listItem') {
-        const marker = text.slice(block.markerStart, block.contentStart);
-        return `\n${' '.repeat(block.indent || 0)}${block.ordered ? '1. ' : marker.trimStart()}`;
-      }
-      // Splitting a block needs a full break; sitting at a boundary already
-      // needs one newline, or each press opens two blank lines at once. Decide
-      // from structure, not from the preceding character — after an edit the
-      // caret often sits just past a closing delimiter, which is not a newline
-      // but is very much a line boundary.
-      const atBoundary = !block || block.type === 'blank' || at <= block.contentStart;
-      return atBoundary ? '\n' : '\n\n';
-    },
   });
 
   attachShortcuts({

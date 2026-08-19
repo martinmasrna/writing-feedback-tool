@@ -16,7 +16,7 @@
  */
 
 import {
-  parse, regionAt, annStartingAt, annEndingAt, overlapping, plainRun,
+  parse, tokenize, regionAt, annStartingAt, annEndingAt, overlapping, plainRun,
   bodyStart, bodyEnd, newStart, newEnd, sanitize, markup, reasonMd, originalOf,
 } from './criticmarkup.js';
 
@@ -298,13 +298,22 @@ export function normalize(text, caret) {
   let out = text;
   let cursor = caret;
 
-  const move = (from, to, replacementLength) => {
+  /**
+   * Carry the caret across a rewrite.
+   *
+   * Outside the rewritten span it just shifts. Inside, it has to be re-found
+   * rather than shoved to one end: normalisation preserves the accepted text
+   * exactly, so the caret's position *within that text* is the thing that
+   * survives. Slamming it to the end of the span drops it somewhere with no
+   * position on screen, and it lands in the next block.
+   */
+  const move = (from, to, before, after) => {
     if (!cursor) return cursor;
-    const delta = replacementLength - (to - from);
+    const delta = after.length - (to - from);
     const map = (p) => {
       if (p <= from) return p;
       if (p >= to) return p + delta;
-      return from + replacementLength;
+      return from + offsetForAccepted(after, acceptedForOffset(before, p - from));
     };
     return { start: map(cursor.start), end: map(cursor.end) };
   };
@@ -321,7 +330,7 @@ export function normalize(text, caret) {
 
       // The run as a whole changes nothing: it is churn, not an edit.
       if (before === after) {
-        cursor = move(from, to, before.length);
+        cursor = move(from, to, out.slice(from, to), before);
         out = out.slice(0, from) + before + out.slice(to);
         acted = true;
         break;
@@ -336,7 +345,7 @@ export function normalize(text, caret) {
         + (addedCore ? `{++${addedCore}++}` : '')
         + suffix;
       if (rebuilt === out.slice(from, to)) continue;
-      cursor = move(from, to, rebuilt.length);
+      cursor = move(from, to, out.slice(from, to), rebuilt);
       out = out.slice(0, from) + rebuilt + out.slice(to);
       acted = true;
       break;
@@ -382,6 +391,48 @@ function cancellableRuns(anns) {
   if (current.length) runs.push(current);
   return runs;
 }
+
+/** How many accepted characters precede source offset `p` in this fragment. */
+function acceptedForOffset(md, p) {
+  let acc = 0;
+  for (const t of tokenize(md)) {
+    if (p <= t.start) return acc;
+    if (t.type === 'plain') {
+      if (p < t.end) return acc + (p - t.start);
+      acc += t.end - t.start;
+    } else if (t.type === 'ins') {
+      if (p < t.end) return acc + clamp(p - (t.start + 3), 0, t.a.length);
+      acc += t.a.length;
+    } else if (t.type === 'sub') {
+      if (p < t.end) return acc + clamp(p - (t.start + 3 + t.a.length + 2), 0, t.b.length);
+      acc += t.b.length;
+    } else if (p < t.end) {
+      return acc;                    // inside a deletion or a comment: contributes nothing
+    }
+  }
+  return acc;
+}
+
+/** The inverse: where in this fragment does accepted character `k` sit. */
+function offsetForAccepted(md, k) {
+  let acc = 0;
+  for (const t of tokenize(md)) {
+    if (t.type === 'plain') {
+      const len = t.end - t.start;
+      if (acc + len >= k) return t.start + (k - acc);
+      acc += len;
+    } else if (t.type === 'ins') {
+      if (acc + t.a.length >= k) return t.start + 3 + (k - acc);
+      acc += t.a.length;
+    } else if (t.type === 'sub') {
+      if (acc + t.b.length >= k) return t.start + 3 + t.a.length + 2 + (k - acc);
+      acc += t.b.length;
+    }
+  }
+  return md.length;
+}
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(v, hi));
 
 /**
  * Only collapse when one side genuinely contains the other — that is the

@@ -138,3 +138,39 @@ test('runs never change what the document means', () => {
     assert.equal(transform(r.text, 'rejected'), transform(text, 'rejected'), `rejected: ${text}`);
   }
 });
+
+/* --- where the caret ends up ---------------------------------------------- */
+
+test('typing into a partly-cancelled edit leaves the caret after what you typed', () => {
+  // "## Summ" with "ary" struck; caret between "Summ" and the strike; type "a".
+  const text = '## Summ{++a++}{--ary--}\n\nThis document';
+  const caret = { start: text.indexOf('++}'), end: text.indexOf('++}') };   // just after the typed "a"
+  const r = normalize(text, caret);
+  assert.equal(r.text, '## Summa{--ry--}\n\nThis document');
+  assert.equal(r.text.slice(0, r.caret.start), '## Summa', 'caret sits right after the "a"');
+});
+
+test('the caret survives a whole run collapsing to nothing', () => {
+  const text = '## Summa{++ry++}{++\n\n++}{--ry--}{--\n\n--}This document';
+  const caret = { start: text.indexOf('++}{++'), end: text.indexOf('++}{++') };  // after the typed "ry"
+  const r = normalize(text, caret);
+  assert.equal(r.text, '## Summary\n\nThis document');
+  assert.equal(r.text.slice(0, r.caret.start), '## Summary');
+});
+
+test('a caret before or after a rewrite is only shifted', () => {
+  const text = 'head {++word++}{--word--} tail';
+  const before = normalize(text, { start: 2, end: 2 });
+  assert.equal(before.caret.start, 2);
+  const after = normalize(text, { start: text.length, end: text.length });
+  assert.equal(after.caret.start, after.text.length);
+});
+
+test('the caret never lands inside markup', () => {
+  const text = '## Summ{++a++}{--ary--}\n\nThis document';
+  for (let p = 0; p <= text.length; p++) {
+    const r = normalize(text, { start: p, end: p });
+    const region = r.text.slice(r.caret.start, r.caret.start + 3);
+    assert.notEqual(region, '--}', `caret landed inside a delimiter from ${p}`);
+  }
+});

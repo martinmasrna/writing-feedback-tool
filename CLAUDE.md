@@ -66,6 +66,8 @@ Structure is parsed here rather than by a markdown library for one decisive reas
 
 It compares whole *runs* of touching annotations, not neighbouring pairs. A pairwise check is not enough: retype a word and then add a paragraph break, and the insertion ends up separated from the deletion it cancels by a third annotation, so the document shows four changes whose net effect is none. For each run, compare what it accepts to what it rejects — if they match, it is churn, and the run becomes plain text.
 
+Carrying the caret across a rewrite needs care. Outside the rewritten span it just shifts; inside, it has to be re-found by its position in the *accepted* text, which normalisation preserves exactly. An earlier version shoved it to the end of the span, which dropped it on an offset the rendered view cannot address — so typing one letter jumped the cursor into the next block.
+
 Two limits, both deliberate. Cancellation only fires when one side genuinely contains the other, so `alpha -> beta` is not shaved into `alph -> bet` plus a stray "a". And a run stops at anything carrying a reason: someone wrote that explanation on purpose, and dissolving the edit beneath it would discard it.
 
 **Rules go in the pure modules; `app.js` only wires.** `criticmarkup.js` and `edits.js` know about strings and offsets and nothing else — no DOM, no globals. That purity is the only reason the editing model is testable, so any new editing behaviour belongs there with a test, not inline in a handler. The editing model is `(text, caret) → (text, caret)`; keep it that way.

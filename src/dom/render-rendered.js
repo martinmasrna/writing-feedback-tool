@@ -130,9 +130,24 @@ export function buildRendered(source) {
   }
 
   let stack = [];
+  let blankRun = 0;
 
   for (const block of blocks) {
-    if (block.type === 'blank') continue;
+    // One blank line between two blocks is the separator and shows nothing.
+    // Every further one is deliberate space someone made, and has to appear —
+    // otherwise pressing Enter looks like it did nothing at all.
+    if (block.type === 'blank') {
+      blankRun++;
+      if (blankRun > 1) {
+        const spacer = el('p', 'blank-line');
+        const node = document.createTextNode('');
+        spacer.append(node);
+        mappings.push({ node, start: toSource(visible, block.start) });
+        (stack.length ? stack[stack.length - 1].node : frag).append(spacer);
+      }
+      continue;
+    }
+    blankRun = 0;
 
     if (block.type === 'listItem') {
       const depth = Math.min(block.depth, 4);

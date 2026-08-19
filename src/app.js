@@ -292,12 +292,20 @@ export function createApp() {
     // Enter means "new block" in the rendered view, and continues a list.
     paragraphBreak: () => {
       if (store.state.view !== 'rendered') return '\n';
-      const block = blockAt(parseBlocks(store.state.text), store.state.caret.start);
+      const text = store.state.text;
+      const at = store.state.caret.start;
+      const block = blockAt(parseBlocks(text), at);
       if (block && block.type === 'listItem') {
-        const marker = store.state.text.slice(block.markerStart, block.contentStart);
+        const marker = text.slice(block.markerStart, block.contentStart);
         return `\n${' '.repeat(block.indent || 0)}${block.ordered ? '1. ' : marker.trimStart()}`;
       }
-      return '\n\n';
+      // Splitting a block needs a full break; sitting at a boundary already
+      // needs one newline, or each press opens two blank lines at once. Decide
+      // from structure, not from the preceding character — after an edit the
+      // caret often sits just past a closing delimiter, which is not a newline
+      // but is very much a line boundary.
+      const atBoundary = !block || block.type === 'blank' || at <= block.contentStart;
+      return atBoundary ? '\n' : '\n\n';
     },
   });
 

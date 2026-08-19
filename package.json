@@ -1,0 +1,19 @@
+{
+  "name": "redline",
+  "version": "1.0.0",
+  "description": "Review markdown documents by editing them; every change is recorded as CriticMarkup with a reason.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "node tools/serve.js",
+    "build": "node tools/build.js",
+    "test": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

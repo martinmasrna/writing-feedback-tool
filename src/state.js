@@ -21,7 +21,7 @@ export function createStore() {
     name: '',
     handle: null,
     loaded: false,
-    view: 'source',
+    view: 'rendered',
     caret: null,
     /** Start offset of the annotation currently being typed into, if any. */
     activeStart: null,
@@ -72,7 +72,7 @@ export function createStore() {
       state.name = name || 'untitled.md';
       state.handle = handle || null;
       state.loaded = true;
-      state.view = 'source';
+      state.view = 'rendered';
       state.caret = null;
       state.activeStart = null;
       state.undo = [];

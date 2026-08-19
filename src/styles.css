@@ -179,3 +179,100 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   border-bottom:1px solid var(--line-2);padding:8px 32px;font-size:11.5px;color:var(--ink-3);
   display:none;text-align:center}
 #readonlyNote.on{display:block}
+
+/* ==========================================================================
+   Rendered view
+   The document reads as prose; tracked changes keep their colours, and block
+   markers that are themselves mid-change get tinted rather than hidden.
+   ========================================================================== */
+
+#doc.rendered{
+  font-family:var(--ui);font-size:15px;line-height:1.65;
+  white-space:normal;max-width:calc(72ch);
+}
+#doc.rendered h1,#doc.rendered h2,#doc.rendered h3,
+#doc.rendered h4,#doc.rendered h5,#doc.rendered h6{
+  font-weight:600;line-height:1.3;margin:1.6em 0 .5em;letter-spacing:-.01em;
+}
+#doc.rendered h1{font-size:1.75em;margin-top:0}
+#doc.rendered h2{font-size:1.35em}
+#doc.rendered h3{font-size:1.15em}
+#doc.rendered h4,#doc.rendered h5,#doc.rendered h6{font-size:1em}
+#doc.rendered p{margin:0 0 1em}
+#doc.rendered ul,#doc.rendered ol{margin:0 0 1em;padding-left:1.6em}
+#doc.rendered li{margin:.25em 0}
+#doc.rendered li::marker{color:var(--ink-3)}
+#doc.rendered blockquote{
+  margin:0 0 1em;padding-left:1em;border-left:2px solid var(--line);color:var(--ink-2);
+}
+#doc.rendered hr{border:0;border-top:1px solid var(--line);margin:1.8em 0}
+#doc.rendered code{
+  font-family:var(--mono);font-size:.88em;background:rgba(23,24,26,.05);
+  border-radius:4px;padding:.1em .35em;
+}
+#doc.rendered a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--ink-3)}
+#doc.rendered strong{font-weight:650}
+#doc.rendered .doc-tail{min-height:1em;margin:0}
+
+/* Block markers caught up in a tracked change. */
+#doc.rendered li.marker-ins::marker{color:var(--ins)}
+#doc.rendered li.marker-del::marker{color:var(--del)}
+#doc.rendered li.marker-del{text-decoration:line-through;text-decoration-color:var(--del-ln)}
+#doc.rendered li.marker-ins,#doc.rendered li.marker-del{
+  position:relative;
+}
+#doc.rendered li.marker-ins::before,#doc.rendered li.marker-del::before,
+#doc.rendered h1.marker-ins::before,#doc.rendered h2.marker-ins::before,
+#doc.rendered h3.marker-ins::before,#doc.rendered h1.marker-sub::before,
+#doc.rendered h2.marker-sub::before,#doc.rendered h3.marker-sub::before,
+#doc.rendered h1.marker-del::before,#doc.rendered h2.marker-del::before,
+#doc.rendered h3.marker-del::before{
+  content:'';position:absolute;left:-1.5em;top:.15em;bottom:.15em;width:2px;border-radius:1px;
+}
+#doc.rendered .marker-ins::before{background:var(--ins)}
+#doc.rendered .marker-del::before{background:var(--del)}
+#doc.rendered .marker-sub::before{background:var(--com)}
+#doc.rendered h1.marker-ins,#doc.rendered h2.marker-ins,#doc.rendered h3.marker-ins,
+#doc.rendered h1.marker-sub,#doc.rendered h2.marker-sub,#doc.rendered h3.marker-sub{
+  position:relative;
+}
+
+/* Tracked changes inline. */
+#doc.rendered .r-ins{color:var(--ins);background:var(--ins-bg);border-radius:3px;
+  box-shadow:inset 0 -1px 0 var(--ins-ln)}
+#doc.rendered .r-del{color:var(--del);background:var(--del-bg);border-radius:3px;
+  text-decoration:line-through;text-decoration-color:var(--del-ln)}
+#doc.rendered .r-hl{background:var(--com-bg);border-radius:3px;
+  box-shadow:inset 0 -1px 0 var(--com-ln)}
+#doc.rendered .r-com{
+  -webkit-user-select:none;user-select:none;
+  font-size:.78em;color:var(--com);background:var(--com-bg);
+  box-shadow:inset 0 0 0 1px var(--com-ln);border-radius:5px;
+  padding:.1em .45em;margin-left:.3em;vertical-align:.08em;
+  cursor:default;
+}
+#doc.rendered .r-noreason{
+  -webkit-user-select:none;user-select:none;cursor:pointer;
+  font-size:.68em;letter-spacing:.04em;text-transform:uppercase;color:var(--del);
+  border:1px dashed var(--del-ln);border-radius:4px;padding:0 .35em;
+  margin-left:.3em;vertical-align:.15em;white-space:nowrap;
+}
+#doc.rendered .r-noreason:hover{background:var(--del-bg)}
+
+/* Blocks we do not fully understand: shown, not edited. */
+#doc.rendered .island{
+  position:relative;font-family:var(--mono);font-size:12.5px;line-height:1.6;
+  background:var(--surface);border:1px solid var(--line);border-radius:8px;
+  padding:1.6em .9em .8em;margin:0 0 1em;white-space:pre-wrap;overflow-x:auto;
+  color:var(--ink-2);
+}
+#doc.rendered .island-label{
+  position:absolute;top:.45em;left:.9em;font-family:var(--ui);font-size:10px;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);
+}
+#doc.rendered .island::after{
+  content:'edit in Source';position:absolute;top:.4em;right:.9em;
+  font-family:var(--ui);font-size:10px;letter-spacing:.03em;color:var(--ink-3);
+}
+
+.item .ex.ex-structural{font-family:var(--ui);font-style:italic;color:var(--ink-2)}

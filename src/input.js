@@ -13,7 +13,7 @@ import * as edits from './edits.js';
  * @param {(sel:{start,end}) => any} read      current selection in source offsets
  * @param {(result:any) => string}   apply     hand a result to the store
  */
-export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, onComposedRender }) {
+export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, onComposedRender, paragraphBreak }) {
   doc.addEventListener('beforeinput', (e) => {
     if (!canEdit()) { e.preventDefault(); return; }
     // Composition is handled at compositionend; cancelling it here breaks IME.
@@ -30,6 +30,8 @@ export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, on
         apply(edits.insert(text, sel, e.data || ''));
         break;
       case 'insertParagraph':
+        apply(edits.insert(text, sel, paragraphBreak ? paragraphBreak() : '\n'));
+        break;
       case 'insertLineBreak':
         apply(edits.insert(text, sel, '\n'));
         break;
@@ -84,7 +86,7 @@ export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, on
  * Global shortcuts. Plain letters are typing now, so every command needs a
  * modifier: ⌘Z / ⇧⌘Z, ⌘S, and ⌘⌥M to comment on a selection.
  */
-export function attachShortcuts({ undo, redo, save, comment, escape, dialogOpen }) {
+export function attachShortcuts({ undo, redo, save, comment, escape, dialogOpen, commands = {} }) {
   window.addEventListener('keydown', (e) => {
     const mod = e.metaKey || e.ctrlKey;
     const key = e.key.toLowerCase();
@@ -96,6 +98,17 @@ export function attachShortcuts({ undo, redo, save, comment, escape, dialogOpen 
     }
     if (mod && key === 's') { e.preventDefault(); save(); return; }
     if (mod && e.altKey && key === 'm') { e.preventDefault(); comment(); return; }
+
+    // Structural commands, in the register people already know.
+    if (mod && !e.altKey && key === 'b' && commands.bold) { e.preventDefault(); commands.bold(); return; }
+    if (mod && !e.altKey && key === 'i' && commands.italic) { e.preventDefault(); commands.italic(); return; }
+    if (mod && e.shiftKey && key === '8' && commands.bullet) { e.preventDefault(); commands.bullet(); return; }
+    if (mod && e.shiftKey && key === '7' && commands.numbered) { e.preventDefault(); commands.numbered(); return; }
+    if (mod && e.altKey && /^[0-6]$/.test(e.key) && commands.heading) {
+      e.preventDefault();
+      commands.heading(Number(e.key));
+      return;
+    }
     if (dialogOpen()) return;
     if (e.key === 'Escape') escape();
   });

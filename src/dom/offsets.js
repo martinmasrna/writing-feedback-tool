@@ -35,11 +35,26 @@ export function createOffsetIndex(root) {
   }
 
   return {
-    /** Rebuild after the document has been re-rendered. */
-    reindex() {
+    /**
+     * Rebuild after the document has been re-rendered.
+     *
+     * The source view renders every character in order, so offsets are a
+     * running sum over its text nodes. The rendered view drops markup from the
+     * screen, so it supplies explicit mappings instead — one per text node it
+     * emitted, each with the source offset its first character came from.
+     */
+    reindex(mappings) {
       nodes = [];
       starts = [];
       total = 0;
+      if (mappings) {
+        for (const m of mappings) {
+          nodes.push(m.node);
+          starts.push(m.start);
+          total = Math.max(total, m.start + m.node.nodeValue.length);
+        }
+        return;
+      }
       const w = textWalker(root);
       let n;
       while ((n = w.nextNode())) {
@@ -74,6 +89,8 @@ export function createOffsetIndex(root) {
     sourceToPoint(offset) {
       if (!nodes.length) return [root, 0];
       let fallback = null;
+      let nearest = null;
+      let nearestGap = Infinity;
       for (let i = 0; i < nodes.length; i++) {
         const s = starts[i];
         const len = nodes[i].nodeValue.length;
@@ -81,9 +98,15 @@ export function createOffsetIndex(root) {
           if (!isAtomic(nodes[i])) return [nodes[i], offset - s];
           if (!fallback) fallback = [nodes[i], offset - s];
         }
-        if (s > offset) break;
+        // The rendered view leaves gaps where markup was; fall to the closest node.
+        const gap = offset < s ? s - offset : offset - (s + len);
+        if (gap > 0 && gap < nearestGap && !isAtomic(nodes[i])) {
+          nearestGap = gap;
+          nearest = [nodes[i], offset < s ? 0 : len];
+        }
       }
       if (fallback) return fallback;
+      if (nearest) return nearest;
       const last = nodes.length - 1;
       return [nodes[last], nodes[last].nodeValue.length];
     },

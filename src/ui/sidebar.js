@@ -17,8 +17,33 @@ function el(tag, className, text) {
   return n;
 }
 
+const MARKER = /^\s*([-*+]|\d{1,9}[.)]|#{1,6})\s+$/;
+
+/** Structural changes read as markers, which is meaningless out of context. */
+function structural(a) {
+  const describe = (m) => {
+    const t = m.trim();
+    if (t.startsWith('#')) return `heading level ${t.length}`;
+    if (/^\d/.test(t)) return 'numbered item';
+    return 'bullet';
+  };
+  if ((a.type === 'ins' || a.type === 'del') && MARKER.test(a.a)) {
+    return `${describe(a.a)} ${a.type === 'ins' ? 'added' : 'removed'}`;
+  }
+  if (a.type === 'sub' && MARKER.test(`${a.a} `) && MARKER.test(`${a.b} `)) {
+    return `${describe(a.a)} → ${describe(a.b)}`;
+  }
+  return null;
+}
+
 function excerpt(a) {
   const n = el('div', 'ex');
+  const asStructure = structural(a);
+  if (asStructure) {
+    n.classList.add('ex-structural');
+    n.textContent = asStructure;
+    return n;
+  }
   if (a.type === 'sub') {
     n.append(el('del', null, truncate(a.a, 60)), el('span', 'arrow', '→'), el('ins', null, truncate(a.b, 60)));
   } else if (a.type === 'ins') {

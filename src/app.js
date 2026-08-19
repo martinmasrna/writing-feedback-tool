@@ -8,6 +8,9 @@ import { transform, hasReason } from './criticmarkup.js';
 import * as edits from './edits.js';
 import { createStore } from './state.js';
 import { buildDocument } from './dom/render.js';
+import { buildRendered } from './dom/render-rendered.js';
+import { parseBlocks, blockAt } from './blocks.js';
+import * as structure from './structure.js';
 import { createOffsetIndex } from './dom/offsets.js';
 import { createToast } from './ui/toast.js';
 import { createHeader } from './ui/header.js';
@@ -25,6 +28,9 @@ export function createApp() {
   const store = createStore();
   const offsets = createOffsetIndex(doc);
   const toast = createToast($('#toast'));
+
+  /** Both editing views; the two previews are read-only. */
+  const editableView = () => store.state.view === 'rendered' || store.state.view === 'source';
 
   /** Set while we restore the caret ourselves, so it does not read as a user move. */
   let restoringCaret = false;
@@ -84,7 +90,15 @@ export function createApp() {
 
   function render() {
     const state = store.state;
-    if (state.view === 'source') {
+    doc.classList.toggle('rendered', state.view === 'rendered');
+    if (state.view === 'rendered') {
+      doc.setAttribute('contenteditable', 'true');
+      doc.classList.remove('readonly');
+      doc.textContent = '';
+      const { fragment, mappings } = buildRendered(state.text, parseBlocks(state.text));
+      doc.append(fragment);
+      offsets.reindex(mappings);
+    } else if (state.view === 'source') {
       doc.setAttribute('contenteditable', 'true');
       doc.classList.remove('readonly');
       doc.textContent = '';
@@ -100,7 +114,7 @@ export function createApp() {
     renderHeader(state, store.dirty());
     $('#empty').style.display = state.loaded ? 'none' : 'flex';
 
-    if (state.view === 'source' && state.caret && !dialog.open) {
+    if (editableView() && state.caret && !dialog.open) {
       restoringCaret = true;
       offsets.writeSelection(state.caret);
       setTimeout(() => { restoringCaret = false; }, 0);
@@ -111,7 +125,7 @@ export function createApp() {
   /* --- the reason prompt, fired when an edit settles --------------------- */
 
   function rectOf(annotation) {
-    const node = doc.querySelector(`.ann[data-start="${annotation.start}"]`);
+    const node = doc.querySelector(`[data-start="${annotation.start}"]`);
     return node ? node.getBoundingClientRect() : null;
   }
 
@@ -128,7 +142,7 @@ export function createApp() {
 
   function onSelectionChange() {
     const state = store.state;
-    if (dialog.open || !state.loaded || state.view !== 'source') return;
+    if (dialog.open || !state.loaded || !editableView()) return;
     const sel = offsets.readSelection();
     if (!sel) { pendingSelection = null; toolbar.hide(); return; }
     store.setCaret(sel);
@@ -158,10 +172,12 @@ export function createApp() {
   pane.addEventListener('scroll', () => { if (!dialog.open) toolbar.hide(); });
 
   doc.addEventListener('click', (e) => {
-    const marker = e.target.closest ? e.target.closest('.noreason') : null;
+    const marker = e.target.closest ? e.target.closest('.noreason, .r-noreason') : null;
     if (!marker) return;
     e.preventDefault();
-    const a = store.state.anns[Number(marker.dataset.ann)];
+    const a = marker.classList.contains('r-noreason')
+      ? store.state.anns.find((x) => x.start === Number(marker.dataset.ann))
+      : store.state.anns[Number(marker.dataset.ann)];
     if (a) dialog.openReasonPrompt(a, store.state.caret, rectOf(a));
   });
 
@@ -187,8 +203,10 @@ export function createApp() {
   }
 
   function reveal(index) {
-    if (store.state.view !== 'source') store.setView('source');
-    const node = doc.querySelector(`.ann[data-i="${index}"]`);
+    if (!editableView()) store.setView('rendered');
+    const a = store.state.anns[index];
+    const node = doc.querySelector(`.ann[data-i="${index}"]`)
+      || (a && doc.querySelector(`[data-start="${a.start}"]`));
     if (!node) return;
     const r = node.getBoundingClientRect();
     const pr = pane.getBoundingClientRect();
@@ -207,16 +225,54 @@ export function createApp() {
     store.apply(result);
   }
 
+  /* --- structural commands ------------------------------------------------ */
+
+  function runStructure(fn) {
+    const state = store.state;
+    if (!state.loaded || !editableView() || !state.caret) return;
+    const result = fn(state.text, state.caret);
+    if (!result) return;
+    if (result.blockedReason === 'unsupported') {
+      toast('That block is a code fence, table or raw HTML — edit it in the Source view.');
+      return;
+    }
+    if (result.blockedReason === 'markup') {
+      toast('That would nest one annotation inside another. Resolve the existing one first.');
+      return;
+    }
+    store.clearActive();
+    store.apply(result);
+    doc.focus();
+  }
+
+  const commands = {
+    bullet: () => runStructure((t, c) => structure.toggleBullet(t, c)),
+    numbered: () => runStructure((t, c) => structure.toggleBullet(t, c, { ordered: true })),
+    heading: (level) => runStructure((t, c) => structure.setHeadingLevel(t, c, level)),
+    bold: () => runStructure((t, c) => structure.toggleEmphasis(t, pendingSelection || c, 'strong')),
+    italic: () => runStructure((t, c) => structure.toggleEmphasis(t, pendingSelection || c, 'em')),
+  };
+
   /* --- input ------------------------------------------------------------- */
 
   attachInput(doc, {
     read: () => offsets.readSelection(),
     apply: applyResult,
     getText: () => store.state.text,
-    canEdit: () => store.state.loaded && store.state.view === 'source',
+    canEdit: () => store.state.loaded && editableView(),
     undo: () => store.undo(),
     redo: () => store.redo(),
     onComposedRender: render,
+    // Enter means "new block" in the rendered view, and continues a list.
+    paragraphBreak: () => {
+      if (store.state.view !== 'rendered') return '\n';
+      const block = blockAt(parseBlocks(store.state.text), store.state.caret.start);
+      if (block && block.type === 'listItem') {
+        const marker = store.state.text.slice(block.markerStart, block.contentStart);
+        return `\n${' '.repeat(block.indent || 0)}${block.ordered ? '1. ' : marker.trimStart()}`;
+      }
+      return '\n\n';
+    },
   });
 
   attachShortcuts({
@@ -229,6 +285,7 @@ export function createApp() {
     },
     escape: () => toolbar.hide(),
     dialogOpen: () => dialog.open,
+    commands,
   });
 
   /* --- files ------------------------------------------------------------- */

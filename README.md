@@ -30,6 +30,10 @@ npm run build       # → dist/index.html
 open dist/index.html
 ```
 
+**Open `dist/index.html`, not the `index.html` at the repo root.** That one is
+the development shell: it loads ES modules, which browsers refuse over
+`file://`. It will tell you so if you open it.
+
 No server, no network, no accounts. Double-clicking `dist/index.html` from disk
 is the intended way to use it. Where the browser exposes the File System Access
 API, **Open** hands back a handle so ⌘S writes straight back to the original

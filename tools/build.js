@@ -34,9 +34,12 @@ async function main() {
   const shell = await readFile(join(root, 'index.html'), 'utf8');
 
   const html = shell
+    // The dev shell's file:// warning is meaningless once everything is inlined.
+    .replace(/<script id="dev-guard">[\s\S]*?<\/script>\n?/, '')
     .replace('<link rel="stylesheet" href="./src/styles.css">', `<style>\n${css.trim()}\n</style>`)
     .replace('<script type="module" src="./src/main.js"></script>', `<script>\n${escapeForScript(js).trim()}\n</script>`);
 
+  if (html.includes('dev-guard')) throw new Error('build left the development-only guard in');
   if (html.includes('src="./src/')) throw new Error('build left an external reference behind');
   if (/<link[^>]+href=|<script[^>]+src=/i.test(html)) throw new Error('build left an external asset behind');
 

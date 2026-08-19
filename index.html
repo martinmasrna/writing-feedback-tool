@@ -87,6 +87,27 @@
 <div id="toast"></div>
 <input type="file" id="fileInput" accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain" hidden>
 
+<script id="dev-guard">
+/* Development shell only — the build strips this block.
+   Opening this file from disk fails with an opaque CORS error, because
+   browsers refuse ES modules over file://. Say so plainly instead. */
+if (location.protocol === 'file:') {
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.innerHTML = '<div style="max-width:34rem;margin:18vh auto;padding:0 1.5rem;'
+      + 'font:14px/1.7 -apple-system,BlinkMacSystemFont,\'Segoe UI\',Helvetica,sans-serif;color:#17181a">'
+      + '<h1 style="font-size:15px;margin:0 0 .8em">This is the development shell.</h1>'
+      + '<p style="margin:0 0 1em;color:#4d5158">It loads ES modules, which browsers block over '
+      + '<code>file://</code>. Two ways to run redline:</p>'
+      + '<p style="margin:0 0 1em"><b>The built app</b> — one self-contained file, no server:<br>'
+      + '<code style="display:inline-block;margin-top:.4em;background:#f0eee9;padding:.3em .5em;'
+      + 'border-radius:5px">open dist/index.html</code></p>'
+      + '<p style="margin:0"><b>Live from source</b>:<br>'
+      + '<code style="display:inline-block;margin-top:.4em;background:#f0eee9;padding:.3em .5em;'
+      + 'border-radius:5px">npm run dev</code>'
+      + '<span style="color:#868a92"> &nbsp;then open http://localhost:4173/</span></p></div>';
+  });
+}
+</script>
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

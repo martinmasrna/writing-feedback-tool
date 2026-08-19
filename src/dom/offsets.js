@@ -25,6 +25,7 @@ export function createOffsetIndex(root) {
   let nodes = [];
   let starts = [];
   let total = 0;
+  let mapped = false;
 
   function edgeText(node, first) {
     if (node.nodeType === 3) return isVirtual(node) ? null : node;
@@ -47,6 +48,7 @@ export function createOffsetIndex(root) {
       nodes = [];
       starts = [];
       total = 0;
+      mapped = !!mappings;
       if (mappings) {
         for (const m of mappings) {
           nodes.push(m.node);
@@ -109,6 +111,34 @@ export function createOffsetIndex(root) {
       if (nearest) return nearest;
       const last = nodes.length - 1;
       return [nodes[last], nodes[last].nodeValue.length];
+    },
+
+    /**
+     * The next source offset the caret can actually occupy on screen, or null
+     * when every character is addressable (the source view) and plain stepping
+     * will do.
+     *
+     * The rendered view leaves whole stretches of source unaddressable: the
+     * blank line between two blocks is structure, not text, so no node holds
+     * it. Stepping onto one of those offsets snaps straight back and the arrow
+     * key appears dead. So we walk the positions that exist instead.
+     */
+    step(offset, dir) {
+      if (!mapped) return null;
+      let best = null;
+      for (let i = 0; i < nodes.length; i++) {
+        if (isAtomic(nodes[i])) continue;             // struck text, comment chips
+        const from = starts[i];
+        const to = from + nodes[i].nodeValue.length;
+        if (dir < 0) {
+          const candidate = Math.min(to, offset - 1);
+          if (candidate >= from && candidate < offset && (best === null || candidate > best)) best = candidate;
+        } else {
+          const candidate = Math.max(from, offset + 1);
+          if (candidate <= to && candidate > offset && (best === null || candidate < best)) best = candidate;
+        }
+      }
+      return best;
     },
 
     /** The current selection as source offsets, or null if it is not in the document. */

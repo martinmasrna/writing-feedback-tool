@@ -38,7 +38,7 @@ const atomic = (node) => { node.setAttribute('contenteditable', 'false'); return
 
 export function buildRendered(source) {
   const visible = toVisible(source);
-  const blocks = parseVisibleBlocks(visible.text);
+  const blocks = parseVisibleBlocks(visible.text, visible.spans);
   const frag = document.createDocumentFragment();
   const mappings = [];
 

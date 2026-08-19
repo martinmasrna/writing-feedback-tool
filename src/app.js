@@ -281,6 +281,14 @@ export function createApp() {
     redo: () => store.redo(),
     onComposedRender: render,
     setCaret: (caret) => { store.setCaret(caret); offsets.writeSelection(caret); },
+    stepInView: (offset, dir) => offsets.step(offset, dir),
+    joinBlocksBefore: (offset) => {
+      if (store.state.view !== 'rendered') return null;   // in Source, newlines are real characters
+      const text = store.state.text;
+      let start = offset;
+      while (start > 0 && text.charAt(start - 1) === '\n') start--;
+      return start < offset ? { start, end: offset } : null;
+    },
     // Enter means "new block" in the rendered view, and continues a list.
     paragraphBreak: () => {
       if (store.state.view !== 'rendered') return '\n';

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseBlocks, splitLines, blockAt, fullySupported, SUPPORTED } from '../src/blocks.js';
+import { transform as transformFor } from '../src/criticmarkup.js';
 
 const kinds = (text) => parseBlocks(text).map((b) => b.type);
 
@@ -120,4 +121,27 @@ test('fullySupported flags documents the rendered view cannot fully edit', () =>
 test('every supported type is one the rendered view claims to handle', () => {
   const types = new Set(kinds('# h\n\npara\n\n- b\n\n> q\n\n---\n'));
   for (const t of types) assert.ok(SUPPORTED.has(t), `${t} should be supported`);
+});
+
+/* --- deleting a block break joins the blocks ------------------------------ */
+
+test('a deleted line break stops separating blocks', () => {
+  const joined = parseBlocks('## Title{--\n\n--}Body text');
+  assert.deepEqual(joined.map((b) => b.type), ['heading'], 'the paragraph joins the heading');
+});
+
+test('an intact line break still separates them', () => {
+  const apart = parseBlocks('## Title\n\nBody text');
+  assert.deepEqual(apart.map((b) => b.type), ['heading', 'blank', 'paragraph']);
+});
+
+test('only deleted breaks are ignored, not inserted ones', () => {
+  const split = parseBlocks('one{++\n\n++}two');
+  assert.equal(split.length > 1, true, 'an inserted break does separate');
+});
+
+test('joining survives a round trip through accept and reject', () => {
+  const text = '## Title{--\n\n--}Body text';
+  assert.equal(transformFor(text, 'accepted'), '## TitleBody text');
+  assert.equal(transformFor(text, 'rejected'), '## Title\n\nBody text');
 });

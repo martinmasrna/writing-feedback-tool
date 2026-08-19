@@ -13,7 +13,7 @@ import * as edits from './edits.js';
  * @param {(sel:{start,end}) => any} read      current selection in source offsets
  * @param {(result:any) => string}   apply     hand a result to the store
  */
-export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, onComposedRender, paragraphBreak, setCaret }) {
+export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, onComposedRender, paragraphBreak, setCaret, stepInView, joinBlocksBefore }) {
   doc.addEventListener('beforeinput', (e) => {
     if (!canEdit()) { e.preventDefault(); return; }
     // Composition is handled at compositionend; cancelling it here breaks IME.
@@ -42,9 +42,15 @@ export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, on
         if (data) apply(edits.insert(text, sel, data));
         break;
       }
-      case 'deleteContentBackward':
-        apply(sel.end > sel.start ? edits.deleteRange(text, sel, 'back') : edits.deleteBackward(text, caret));
+      case 'deleteContentBackward': {
+        if (sel.end > sel.start) { apply(edits.deleteRange(text, sel, 'back')); break; }
+        // At the top of a block, backspace joins it to the one above — which
+        // means removing the whole separator, not one newline of it. Deleting
+        // half a blank line changes nothing anyone can see.
+        const join = joinBlocksBefore ? joinBlocksBefore(caret) : null;
+        apply(join ? edits.deleteRange(text, join, 'back') : edits.deleteBackward(text, caret));
         break;
+      }
       case 'deleteContentForward':
         apply(sel.end > sel.start ? edits.deleteRange(text, sel, 'fwd') : edits.deleteForward(text, caret));
         break;
@@ -83,7 +89,9 @@ export function attachInput(doc, { read, apply, getText, canEdit, undo, redo, on
 
     // A collapsed caret steps; a selection collapses to the edge you moved toward.
     const from = sel.end > sel.start ? (dir < 0 ? sel.start : sel.end) : sel.start;
-    const target = sel.end > sel.start ? from : edits.stepCaret(getText(), from, dir);
+    const target = sel.end > sel.start
+      ? from
+      : (stepInView ? stepInView(from, dir) : null) ?? edits.stepCaret(getText(), from, dir);
     if (target === sel.start && target === sel.end) return;         // already at the end of the document
 
     e.preventDefault();

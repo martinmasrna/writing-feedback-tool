@@ -23,20 +23,28 @@ import { toVisible, toSource } from './visible.js';
 /** Everything the rendered view is allowed to edit in place. */
 export const SUPPORTED = new Set(['paragraph', 'heading', 'listItem', 'blockquote', 'rule', 'blank']);
 
-const HEADING = /^(#{1,6})(\s+)(.*)$/;
-const BULLET = /^(\s*)([-*+])(\s+)(.*)$/;
-const ORDERED = /^(\s*)(\d{1,9})([.)])(\s+)(.*)$/;
-const QUOTE = /^(\s*)(>\s?)(.*)$/;
+// The content group spans newlines: once a line break is deleted, the joined
+// block legitimately contains one, and `.` would refuse to match past it.
+const HEADING = /^(#{1,6})([ \t]+)([\s\S]*)$/;
+const BULLET = /^([ \t]*)([-*+])([ \t]+)([\s\S]*)$/;
+const ORDERED = /^([ \t]*)(\d{1,9})([.)])([ \t]+)([\s\S]*)$/;
+const QUOTE = /^([ \t]*)(>[ \t]?)([\s\S]*)$/;
 const RULE = /^\s*((?:-\s*){3,}|(?:\*\s*){3,}|(?:_\s*){3,})$/;
 const FENCE = /^\s*(```|~~~)/;
 const TABLE_DELIM = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)+\|?\s*$/;
 const HTML_BLOCK = /^\s*<[a-zA-Z!/]/;
 
 /**
- * Split text into lines, keeping each line's absolute source offsets.
+ * Split text into lines, keeping each line's absolute offsets.
  * The trailing newline belongs to the line it terminates.
+ *
+ * `isDeleted` lets a caller say which newlines are being removed. A deleted
+ * line break no longer separates anything: pressing backspace at the top of a
+ * paragraph should visibly join it to the block above, the way it does in every
+ * other editor. Keeping the break would leave the screen unchanged and the
+ * keystroke looking broken.
  */
-export function splitLines(text) {
+export function splitLines(text, isDeleted) {
   const lines = [];
   let start = 0;
   for (let i = 0; i <= text.length; i++) {
@@ -44,12 +52,20 @@ export function splitLines(text) {
       if (start <= i && (start < i || lines.length === 0)) lines.push({ start, end: i, text: text.slice(start, i) });
       break;
     }
-    if (text.charAt(i) === '\n') {
+    if (text.charAt(i) === '\n' && !(isDeleted && isDeleted(i))) {
       lines.push({ start, end: i, text: text.slice(start, i) });
       start = i + 1;
     }
   }
   return lines;
+}
+
+/** Is this visible offset inside a deletion? */
+export function deletedAt(spans) {
+  if (!spans || !spans.length) return null;
+  const removals = spans.filter((s) => s.kind === 'del');
+  if (!removals.length) return null;
+  return (i) => removals.some((s) => i >= s.start && i < s.end);
 }
 
 /** Classify one line of the visible document. Offsets are visible offsets. */
@@ -131,8 +147,8 @@ function classify(line) {
  * continuation); everything else is one block per line. A table is detected by
  * its delimiter row and swallows the surrounding pipe lines.
  */
-export function parseVisibleBlocks(visibleText) {
-  const lines = splitLines(visibleText);
+export function parseVisibleBlocks(visibleText, spans) {
+  const lines = splitLines(visibleText, deletedAt(spans));
   const classified = [];
   let insideFence = false;
   for (const line of lines) {
@@ -204,7 +220,7 @@ const OFFSETS = ['start', 'end', 'contentStart', 'contentEnd', 'markerStart', 'm
  */
 export function parseBlocks(text) {
   const visible = toVisible(text);
-  const blocks = parseVisibleBlocks(visible.text);
+  const blocks = parseVisibleBlocks(visible.text, visible.spans);
   return blocks.map((b) => {
     const mapped = { ...b, visible: {} };
     for (const key of OFFSETS) {

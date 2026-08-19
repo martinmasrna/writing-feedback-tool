@@ -1,0 +1,1046 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>redline</title>
+<style>
+:root{
+  --paper:#faf9f7;
+  --surface:#ffffff;
+  --ink:#17181a;
+  --ink-2:#4d5158;
+  --ink-3:#868a92;
+  --line:#e5e2dc;
+  --line-2:#efedE8;
+  --ins:#116b39; --ins-bg:rgba(17,107,57,.10); --ins-ln:rgba(17,107,57,.30);
+  --del:#a5281e; --del-bg:rgba(165,40,30,.09); --del-ln:rgba(165,40,30,.30);
+  --com:#1d4ed8; --com-bg:rgba(29,78,216,.10); --com-ln:rgba(29,78,216,.30);
+  --r:7px;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--ui);font-size:13px;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button{font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);padding:5px 10px;cursor:pointer;
+  transition:background .12s ease,border-color .12s ease,color .12s ease}
+button:hover:not(:disabled){background:#f4f2ef;border-color:#d8d4cc}
+button:disabled{opacity:.38;cursor:default}
+button.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+button.primary:hover:not(:disabled){background:#2c2e33;border-color:#2c2e33}
+button.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+#btnUndo,#btnRedo{font-size:15px;line-height:14px;padding:4px 8px}
+button.ghost:hover:not(:disabled){background:#efedE8;color:var(--ink)}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+textarea,input{font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;width:100%;resize:vertical}
+textarea:focus,input:focus{outline:2px solid var(--ink);outline-offset:-1px;border-color:var(--ink)}
+
+/* ---------- header ---------- */
+#bar{
+  height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;
+  border-bottom:1px solid var(--line);background:var(--surface);
+  position:relative;z-index:30;
+}
+.brand{font-weight:600;letter-spacing:-.01em;font-size:13.5px}
+.brand em{font-style:normal;color:var(--del)}
+#fileMeta{color:var(--ink-2);font-size:12px;display:flex;align-items:center;gap:6px;
+  max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--del);flex:none;display:none}
+.dot.on{display:block}
+.spacer{flex:1}
+#counts{display:flex;gap:4px}
+.cnt{font-family:var(--mono);font-size:11px;padding:2px 6px;border-radius:5px;
+  color:var(--ink-3);background:transparent;white-space:nowrap}
+.cnt.on{color:var(--c);background:var(--b)}
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;border-radius:0;padding:5px 9px;background:transparent;color:var(--ink-2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--ink);color:#fff}
+.seg button.on:hover{background:var(--ink)}
+.sep{width:1px;height:20px;background:var(--line)}
+
+/* ---------- layout ---------- */
+main{display:flex;height:calc(100% - 46px)}
+#docPane{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+#doc{
+  max-width:calc(82ch + 64px);margin:0 auto;padding:40px 32px 55vh;
+  font-family:var(--mono);font-size:13.5px;line-height:1.75;
+  white-space:pre-wrap;overflow-wrap:break-word;tab-size:2;
+  -webkit-user-select:text;user-select:text;
+}
+#doc.readonly{-webkit-user-select:none;user-select:none;color:var(--ink-2)}
+#doc ::selection,#doc::selection{background:rgba(23,24,26,.14)}
+
+#sidebar{width:334px;flex:none;border-left:1px solid var(--line);background:var(--surface);
+  display:flex;flex-direction:column}
+.side-head{display:flex;align-items:baseline;gap:7px;padding:13px 15px 11px;
+  border-bottom:1px solid var(--line-2);font-weight:600;font-size:12px;
+  letter-spacing:.03em;text-transform:uppercase;color:var(--ink-2)}
+.side-head span{font-weight:400;color:var(--ink-3);letter-spacing:0;text-transform:none;font-size:12px}
+#list{flex:1;overflow-y:auto;padding:6px 0 40px}
+.empty-side{padding:22px 16px;color:var(--ink-3);font-size:12.5px;line-height:1.6}
+
+.item{display:grid;grid-template-columns:1fr auto;gap:6px;padding:11px 12px 11px 15px;
+  border-bottom:1px solid var(--line-2);cursor:pointer;transition:background .12s ease}
+.item:hover{background:#f7f5f2}
+.item .kind{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.item .kind i{font-style:normal;color:var(--ink-3);font-weight:400;letter-spacing:0;
+  text-transform:none;font-size:11px;font-family:var(--mono)}
+.item .ex{font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--ink);
+  word-break:break-word;margin-bottom:5px}
+.item .ex del{color:var(--del);text-decoration-color:var(--del-ln)}
+.item .ex ins{color:var(--ins);text-decoration:none}
+.item .ex .arrow{color:var(--ink-3);padding:0 5px}
+.item .why{font-size:12px;line-height:1.5;color:var(--ink-2);word-break:break-word}
+.item .why.none{color:var(--ink-3);font-style:italic}
+.item .del-btn{align-self:start;opacity:0;padding:2px 6px;line-height:1;font-size:14px;color:var(--ink-3)}
+.item:hover .del-btn,.del-btn:focus-visible{opacity:1}
+
+/* ---------- inline criticmarkup ---------- */
+.ann{border-radius:4px;transition:box-shadow .25s ease,background .25s ease}
+.ann.flash{box-shadow:0 0 0 3px rgba(23,24,26,.16)}
+.syn{opacity:.32}
+.a-ins{color:var(--ins);background:var(--ins-bg);border-radius:3px;
+  box-shadow:inset 0 -1px 0 var(--ins-ln)}
+.a-del{color:var(--del);background:var(--del-bg);border-radius:3px;text-decoration:line-through;
+  text-decoration-color:var(--del-ln)}
+.a-hl{background:var(--com-bg);border-radius:3px;box-shadow:inset 0 -1px 0 var(--com-ln)}
+.a-com{color:var(--com);background:var(--com-bg);border-radius:4px;
+  box-shadow:inset 0 0 0 1px var(--com-ln)}
+.noreason{-webkit-user-select:none;user-select:none;font-family:var(--ui);font-size:10.5px;
+  letter-spacing:.03em;text-transform:uppercase;color:var(--del);
+  border:1px dashed var(--del-ln);border-radius:4px;padding:0 4px;margin-left:3px;
+  vertical-align:1px;white-space:nowrap}
+
+/* ---------- floating toolbar ---------- */
+#toolbar{position:fixed;z-index:40;display:none;gap:2px;padding:3px;
+  background:var(--surface);border:1px solid var(--line);border-radius:9px;
+  box-shadow:0 6px 22px rgba(23,24,26,.13),0 1px 3px rgba(23,24,26,.08)}
+#toolbar.on{display:flex}
+#toolbar button{border:0;background:transparent;padding:5px 9px;border-radius:6px;
+  display:flex;align-items:center;gap:6px}
+#toolbar button:hover{background:#f1efec}
+#toolbar kbd{font-family:var(--mono);font-size:10px;color:var(--ink-3);
+  border:1px solid var(--line);border-radius:3px;padding:0 3px;line-height:14px}
+
+/* ---------- dialog ---------- */
+#scrim{position:fixed;inset:0;z-index:50;background:rgba(23,24,26,.08)}
+#dialog{position:fixed;z-index:60;width:396px;background:var(--surface);
+  border:1px solid var(--line);border-radius:11px;padding:14px;
+  box-shadow:0 14px 44px rgba(23,24,26,.18),0 2px 6px rgba(23,24,26,.08)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.dlg-head b{font-size:13px}
+.dlg-ctx{font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-2);
+  background:var(--paper);border:1px solid var(--line-2);border-radius:6px;
+  padding:6px 8px;margin-bottom:11px;max-height:64px;overflow:auto;word-break:break-word}
+.dlg-ctx.caret{color:var(--ink-3)}
+label{display:flex;align-items:baseline;gap:6px;font-size:11.5px;font-weight:600;
+  letter-spacing:.02em;margin-bottom:5px;color:var(--ink-2)}
+label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
+.field{margin-bottom:11px}
+.field textarea{font-family:var(--mono);font-size:12.5px;line-height:1.5}
+.dlg-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hint{font-size:11px;color:var(--ink-3)}
+
+/* ---------- empty state ---------- */
+#empty{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  background:var(--paper);padding:24px}
+#empty .card{width:460px;max-width:100%}
+#drop{border:1.5px dashed var(--line);border-radius:12px;padding:34px 24px;text-align:center;
+  background:var(--surface);transition:border-color .15s ease,background .15s ease}
+#drop.hot{border-color:var(--ink);background:#f4f2ef}
+#drop h1{font-size:15px;margin:0 0 5px;font-weight:600}
+#drop p{margin:0 0 16px;color:var(--ink-3);font-size:12.5px;line-height:1.6}
+#paste{margin-top:14px}
+#paste textarea{font-family:var(--mono);font-size:12px;line-height:1.5;height:96px}
+.keys{margin-top:18px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;
+  font-size:11.5px;color:var(--ink-3);align-items:baseline}
+.keys kbd{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--surface);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px;justify-self:start;white-space:nowrap}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,10px);z-index:70;
+  background:var(--ink);color:#fff;font-size:12.5px;line-height:1.5;padding:9px 14px;
+  border-radius:8px;max-width:520px;box-shadow:0 8px 26px rgba(23,24,26,.24);
+  opacity:0;pointer-events:none;transition:opacity .16s ease,transform .16s ease}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+#toast b{color:#fff}
+
+#readonlyNote{position:sticky;top:0;z-index:5;background:var(--paper);
+  border-bottom:1px solid var(--line-2);padding:8px 32px;font-size:11.5px;color:var(--ink-3);
+  display:none;text-align:center}
+#readonlyNote.on{display:block}
+</style>
+</head>
+<body>
+
+<header id="bar">
+  <div class="brand">red<em>line</em></div>
+  <div class="sep"></div>
+  <div id="fileMeta"><span class="dot" id="dirtyDot"></span><span id="fileName">no file</span></div>
+  <div id="counts"></div>
+  <div class="spacer"></div>
+  <div class="seg" id="views">
+    <button data-view="source" class="on">Source</button>
+    <button data-view="accepted">Accepted</button>
+    <button data-view="rejected">Rejected</button>
+  </div>
+  <div class="sep"></div>
+  <button class="ghost" id="btnUndo" title="Undo (⌘Z)" aria-label="Undo">&#8630;</button>
+  <button class="ghost" id="btnRedo" title="Redo (⇧⌘Z)" aria-label="Redo">&#8631;</button>
+  <div class="sep"></div>
+  <button id="btnOpen">Open</button>
+  <button id="btnCopy">Copy</button>
+  <button id="btnSave" class="primary" title="Save (⌘S)">Save</button>
+</header>
+
+<main>
+  <section id="docPane">
+    <div id="readonlyNote"></div>
+    <div id="doc"></div>
+    <div id="empty">
+      <div class="card">
+        <div id="drop">
+          <h1>Drop a markdown file here</h1>
+          <p>Annotations are written as CriticMarkup into the file itself.<br>Nothing leaves this page.</p>
+          <button class="primary" id="btnPick">Choose file…</button>
+          <div id="paste">
+            <textarea id="pasteBox" placeholder="…or paste markdown text here"></textarea>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+              <button id="btnPaste">Use this text</button>
+            </div>
+          </div>
+        </div>
+        <div class="keys">
+          <kbd>r</kbd><span>replace selection</span>
+          <kbd>d</kbd><span>delete selection</span>
+          <kbd>c</kbd><span>comment on selection</span>
+          <kbd>i</kbd><span>insert at cursor</span>
+          <kbd>⌘Z / ⇧⌘Z</kbd><span>undo / redo</span>
+          <kbd>⌘S</kbd><span>save</span>
+        </div>
+      </div>
+    </div>
+  </section>
+  <aside id="sidebar">
+    <div class="side-head">Annotations <span id="annCount"></span></div>
+    <div id="list"></div>
+  </aside>
+</main>
+
+<div id="toolbar" role="toolbar"></div>
+<div id="scrim" hidden></div>
+<div id="dialog" hidden role="dialog" aria-modal="true">
+  <div class="dlg-head"><b id="dlgTitle"></b><button class="ghost" id="dlgClose">Esc</button></div>
+  <div class="dlg-ctx" id="dlgCtx"></div>
+  <div class="field">
+    <label for="fReason"><span id="lblReason">Reason</span><span class="opt" id="reasonOpt">optional</span></label>
+    <textarea id="fReason" rows="2" placeholder="Why this edit?"></textarea>
+  </div>
+  <div class="field" id="textRow">
+    <label for="fText"><span id="lblText">Replacement text</span></label>
+    <textarea id="fText" rows="2"></textarea>
+  </div>
+  <div class="dlg-foot">
+    <span class="hint">Enter applies · ⇧Enter newline</span>
+    <button class="primary" id="dlgApply">Apply</button>
+  </div>
+</div>
+<div id="toast"></div>
+<input type="file" id="fileInput" accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain" hidden>
+
+<script>
+(function(){
+"use strict";
+
+/* ==========================================================================
+   CriticMarkup parsing
+   ========================================================================== */
+
+var CM = /\{\+\+([\s\S]*?)\+\+\}|\{--([\s\S]*?)--\}|\{~~([\s\S]*?)~>([\s\S]*?)~~\}|\{==([\s\S]*?)==\}|\{>>([\s\S]*?)<<\}/g;
+
+// Flat token stream: plain runs interleaved with CriticMarkup spans.
+function tokenize(text){
+  var toks=[], last=0, m;
+  CM.lastIndex=0;
+  while((m=CM.exec(text))!==null){
+    if(m.index>last) toks.push({type:'plain',start:last,end:m.index});
+    var t={start:m.index,end:m.index+m[0].length};
+    if(m[1]!==undefined){t.type='ins';t.a=m[1];}
+    else if(m[2]!==undefined){t.type='del';t.a=m[2];}
+    else if(m[3]!==undefined){t.type='sub';t.a=m[3];t.b=m[4];}
+    else if(m[5]!==undefined){t.type='hl';t.a=m[5];}
+    else {t.type='com';t.a=m[6];}
+    toks.push(t);
+    last=t.end;
+  }
+  if(last<text.length) toks.push({type:'plain',start:last,end:text.length});
+  return toks;
+}
+
+// Annotations = edit tokens, each absorbing a directly-following comment as its reason.
+function collect(toks){
+  var out=[];
+  for(var i=0;i<toks.length;i++){
+    var t=toks[i];
+    if(t.type==='plain') continue;
+    if(t.type==='com'){
+      out.push({type:'com',start:t.start,end:t.end,a:t.a,b:'',reason:t.a,tok:t,ctok:null});
+      continue;
+    }
+    var next=toks[i+1], reason=null, ctok=null, end=t.end;
+    if(next && next.type==='com'){ reason=next.a; ctok=next; end=next.end; i++; }
+    out.push({type:t.type,start:t.start,end:end,a:t.a,b:t.b||'',reason:reason,tok:t,ctok:ctok});
+  }
+  return out;
+}
+
+function hasReason(a){ return a.reason!==null && a.reason.trim()!==''; }
+
+var KIND={
+  ins:{label:'Insert',color:'var(--ins)',bg:'var(--ins-bg)',sym:'+'},
+  del:{label:'Delete',color:'var(--del)',bg:'var(--del-bg)',sym:'−'},
+  sub:{label:'Replace',color:'var(--ink)',bg:'rgba(23,24,26,.06)',sym:'⇄'},
+  hl:{label:'Comment',color:'var(--com)',bg:'var(--com-bg)',sym:'▣'},
+  com:{label:'Comment',color:'var(--com)',bg:'var(--com-bg)',sym:'▣'}
+};
+
+/* ==========================================================================
+   State
+   ========================================================================== */
+
+var S={
+  text:'', saved:'', name:'', loaded:false,
+  handle:null,
+  undo:[], redo:[],
+  anns:[],
+  pending:null,      // {start,end,rect}
+  view:'source',
+  dialog:null,       // active dialog kind
+  tnodes:[], toffs:[]
+};
+var MAXHIST=300;
+
+var $=function(s){return document.querySelector(s);};
+var doc=$('#doc'), pane=$('#docPane'), list=$('#list'), tb=$('#toolbar'),
+    dlg=$('#dialog'), scrim=$('#scrim'), toastEl=$('#toast');
+
+/* ==========================================================================
+   Small helpers
+   ========================================================================== */
+
+function el(tag,cls,text){
+  var n=document.createElement(tag);
+  if(cls) n.className=cls;
+  if(text!==undefined && text!==null) n.textContent=text;
+  return n;
+}
+var toastT=null;
+function toast(msg){
+  toastEl.textContent=msg;
+  toastEl.classList.add('on');
+  clearTimeout(toastT);
+  toastT=setTimeout(function(){toastEl.classList.remove('on');},3600);
+}
+function truncate(s,n){
+  s=s.replace(/\s+/g,' ').trim();
+  return s.length>n ? s.slice(0,n-1)+'…' : s;
+}
+// User-typed text must not smuggle in CriticMarkup delimiters.
+function sanitize(s){
+  return s.replace(/\{\+\+|\+\+\}|\{--|--\}|\{~~|~~\}|~>|\{==|==\}|\{>>|<<\}/g,'');
+}
+function clean(s,what){
+  var out=sanitize(s);
+  if(out!==s) toast('Removed CriticMarkup delimiters from the '+what+' — they would corrupt the annotation.');
+  return out;
+}
+
+/* ==========================================================================
+   Rendering: source view
+   ========================================================================== */
+
+function synSpan(t){ return el('span','syn',t); }
+
+function annEl(a,i){
+  var wrap=el('span','ann');
+  wrap.dataset.i=i;
+  var body=el('span','a-'+(a.type==='com'?'com':a.type));
+
+  if(a.type==='ins'){
+    body.appendChild(synSpan('{++')); body.appendChild(document.createTextNode(a.a)); body.appendChild(synSpan('++}'));
+  }else if(a.type==='del'){
+    body.appendChild(synSpan('{--')); body.appendChild(document.createTextNode(a.a)); body.appendChild(synSpan('--}'));
+  }else if(a.type==='sub'){
+    body=el('span','a-sub');
+    var o=el('span','a-del'); o.appendChild(synSpan('{~~')); o.appendChild(document.createTextNode(a.a));
+    var n=el('span','a-ins'); n.appendChild(document.createTextNode(a.b)); n.appendChild(synSpan('~~}'));
+    body.appendChild(o); body.appendChild(synSpan('~>')); body.appendChild(n);
+  }else if(a.type==='hl'){
+    body.appendChild(synSpan('{==')); body.appendChild(document.createTextNode(a.a)); body.appendChild(synSpan('==}'));
+  }else{
+    body.appendChild(synSpan('{>>')); body.appendChild(document.createTextNode(a.a)); body.appendChild(synSpan('<<}'));
+  }
+  wrap.appendChild(body);
+
+  if(a.ctok){
+    var c=el('span','a-com');
+    c.appendChild(synSpan('{>>')); c.appendChild(document.createTextNode(a.ctok.a)); c.appendChild(synSpan('<<}'));
+    wrap.appendChild(c);
+  }
+  if(a.type!=='com' && !hasReason(a)){
+    var nr=el('span','noreason','no reason');
+    nr.dataset.virtual='1';
+    nr.title='This annotation has no explanation attached.';
+    wrap.appendChild(nr);
+  }
+  return wrap;
+}
+
+function renderSource(){
+  var frag=document.createDocumentFragment(), pos=0;
+  for(var i=0;i<S.anns.length;i++){
+    var a=S.anns[i];
+    if(a.start>pos) frag.appendChild(document.createTextNode(S.text.slice(pos,a.start)));
+    frag.appendChild(annEl(a,i));
+    pos=a.end;
+  }
+  if(pos<S.text.length) frag.appendChild(document.createTextNode(S.text.slice(pos)));
+  doc.textContent='';
+  doc.appendChild(frag);
+  doc.classList.remove('readonly');
+  indexTextNodes();
+}
+
+// Apply or revert every annotation, for the preview modes.
+function transform(text,mode){
+  var toks=tokenize(text), out='';
+  for(var i=0;i<toks.length;i++){
+    var t=toks[i];
+    if(t.type==='plain') out+=text.slice(t.start,t.end);
+    else if(t.type==='ins') out+= mode==='accepted'?t.a:'';
+    else if(t.type==='del') out+= mode==='accepted'?'':t.a;
+    else if(t.type==='sub') out+= mode==='accepted'?t.b:t.a;
+    else if(t.type==='hl') out+=t.a;
+  }
+  return out;
+}
+
+function renderPreview(){
+  doc.textContent=transform(S.text,S.view);
+  doc.classList.add('readonly');
+  S.tnodes=[]; S.toffs=[];
+}
+
+/* ==========================================================================
+   DOM <-> source offset mapping
+   Every source character is rendered exactly once, in order, so the mapping is
+   a plain running sum over the document's text nodes (skipping virtual chrome).
+   ========================================================================== */
+
+function isVirtual(node){
+  var e = node.nodeType===1 ? node : node.parentElement;
+  return !!(e && e.closest('[data-virtual]'));
+}
+
+function indexTextNodes(){
+  S.tnodes=[]; S.toffs=[];
+  var w=document.createTreeWalker(doc,NodeFilter.SHOW_TEXT,{
+    acceptNode:function(n){ return isVirtual(n)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT; }
+  });
+  var total=0,n;
+  while((n=w.nextNode())){ S.tnodes.push(n); S.toffs.push(total); total+=n.nodeValue.length; }
+}
+
+function edgeText(node,first){
+  if(node.nodeType===3) return isVirtual(node)?null:node;
+  var w=document.createTreeWalker(node,NodeFilter.SHOW_TEXT,{
+    acceptNode:function(n){ return isVirtual(n)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT; }
+  });
+  var out=null,n;
+  while((n=w.nextNode())){ out=n; if(first) break; }
+  return out;
+}
+
+function pointToSrc(node,off){
+  if(node.nodeType===3){
+    var k=S.tnodes.indexOf(node);
+    return k<0?null:S.toffs[k]+off;
+  }
+  var kids=node.childNodes, t;
+  if(off<kids.length){
+    t=edgeText(kids[off],true);
+    if(t){ var i=S.tnodes.indexOf(t); if(i>=0) return S.toffs[i]; }
+  }
+  if(off>0){
+    t=edgeText(kids[off-1],false);
+    if(t){ var j=S.tnodes.indexOf(t); if(j>=0) return S.toffs[j]+t.nodeValue.length; }
+  }
+  if(node===doc) return off>0?S.text.length:0;
+  return null;
+}
+
+/* ==========================================================================
+   Guard rail: no annotation may overlap existing CriticMarkup
+   ========================================================================== */
+
+function overlapping(start,end){
+  for(var i=0;i<S.anns.length;i++){
+    var a=S.anns[i];
+    if(start<a.end && end>a.start) return a;
+  }
+  return null;
+}
+
+function refuse(a){
+  var k=KIND[a.type].label.toLowerCase();
+  toast('That selection crosses an existing '+k+' annotation. Annotations can’t nest or overlap — select text outside it, or delete that annotation first.');
+  flash(S.anns.indexOf(a));
+}
+
+/* ==========================================================================
+   Mutation + history
+   ========================================================================== */
+
+function commit(next){
+  S.undo.push(S.text);
+  if(S.undo.length>MAXHIST) S.undo.shift();
+  S.redo.length=0;
+  S.text=next;
+  render();
+}
+function splice(start,end,ins){ commit(S.text.slice(0,start)+ins+S.text.slice(end)); }
+
+function undo(){
+  if(!S.undo.length) return;
+  S.redo.push(S.text);
+  S.text=S.undo.pop();
+  render();
+}
+function redo(){
+  if(!S.redo.length) return;
+  S.undo.push(S.text);
+  S.text=S.redo.pop();
+  render();
+}
+
+/* ==========================================================================
+   Annotation authoring
+   ========================================================================== */
+
+function reasonMd(r){ r=r.trim(); return r?'{>>'+r+'<<}':''; }
+
+function create(kind,text,reason){
+  var p=S.pending;
+  if(!p) return;
+  var hit=overlapping(p.start,p.end);
+  if(hit){ refuse(hit); return; }
+  var old=S.text.slice(p.start,p.end), md;
+  if(kind==='sub')      md='{~~'+old+'~>'+text+'~~}'+reasonMd(reason);
+  else if(kind==='del') md='{--'+old+'--}'+reasonMd(reason);
+  else if(kind==='hl')  md='{=='+old+'==}'+reasonMd(reason);
+  else                  md='{++'+text+'++}'+reasonMd(reason);
+  splice(p.start,p.end,md);
+  if(!reason.trim()) toast('Annotation saved without a reason.');
+}
+
+// Removing an annotation restores whatever the original text was.
+function removeAnn(i){
+  var a=S.anns[i];
+  if(!a) return;
+  var keep='';
+  if(a.type==='del'||a.type==='hl') keep=a.a;
+  else if(a.type==='sub') keep=a.a;
+  splice(a.start,a.end,keep);
+}
+
+/* ==========================================================================
+   Sidebar
+   ========================================================================== */
+
+function excerptEl(a){
+  var n=el('div','ex');
+  if(a.type==='sub'){
+    n.appendChild(el('del',null,truncate(a.a,60)));
+    n.appendChild(el('span','arrow','→'));
+    n.appendChild(el('ins',null,truncate(a.b,60)));
+  }else if(a.type==='ins'){
+    n.appendChild(el('ins',null,truncate(a.a,120)));
+  }else if(a.type==='del'){
+    n.appendChild(el('del',null,truncate(a.a,120)));
+  }else if(a.type==='hl'){
+    n.textContent=truncate(a.a,120);
+  }else{
+    n.textContent=truncate(a.a,120);
+  }
+  return n;
+}
+
+function renderSidebar(){
+  list.textContent='';
+  $('#annCount').textContent=S.anns.length?String(S.anns.length):'';
+  if(!S.loaded){
+    list.appendChild(el('div','empty-side','Load a document to begin.'));
+    return;
+  }
+  if(!S.anns.length){
+    list.appendChild(el('div','empty-side','No annotations yet. Select text in the document, then press r, d or c — or click where text should be inserted and press i.'));
+    return;
+  }
+  S.anns.forEach(function(a,i){
+    var item=el('div','item');
+    item.dataset.i=i;
+    var main=el('div');
+
+    var kind=el('div','kind');
+    kind.style.color=KIND[a.type].color;
+    kind.appendChild(el('span',null,KIND[a.type].sym+' '+KIND[a.type].label));
+    if(a.type==='com') kind.appendChild(el('i',null,'unanchored'));
+    main.appendChild(kind);
+
+    if(a.type!=='com') main.appendChild(excerptEl(a));
+
+    var why=el('div','why');
+    if(hasReason(a)) why.textContent=a.reason.trim();
+    else if(a.type==='com') why.textContent=a.a;
+    else { why.textContent='no reason given'; why.className='why none'; }
+    main.appendChild(why);
+
+    item.appendChild(main);
+
+    var del=el('button','del-btn ghost','×');
+    del.title='Remove this annotation and restore the original text';
+    del.setAttribute('aria-label','Remove annotation');
+    del.addEventListener('click',function(e){ e.stopPropagation(); removeAnn(i); });
+    item.appendChild(del);
+
+    item.addEventListener('click',function(){ scrollTo(i); });
+    list.appendChild(item);
+  });
+}
+
+function flash(i){
+  var t=doc.querySelector('.ann[data-i="'+i+'"]');
+  if(!t) return;
+  t.classList.add('flash');
+  setTimeout(function(){ t.classList.remove('flash'); },900);
+}
+function scrollTo(i){
+  if(S.view!=='source'){ setView('source'); }
+  var t=doc.querySelector('.ann[data-i="'+i+'"]');
+  if(!t) return;
+  var r=t.getBoundingClientRect(), pr=pane.getBoundingClientRect();
+  var top=pane.scrollTop+(r.top-pr.top)-(pane.clientHeight-r.height)/2;
+  top=Math.max(0,Math.min(top,pane.scrollHeight-pane.clientHeight));
+  pane.scrollTop=top;
+  flash(i);
+}
+
+/* ==========================================================================
+   Header: counts, dirty flag, view toggle
+   ========================================================================== */
+
+function renderCounts(){
+  var c={sub:0,del:0,ins:0,com:0};
+  S.anns.forEach(function(a){ c[a.type==='hl'?'com':a.type]++; });
+  var box=$('#counts');
+  box.textContent='';
+  [['ins','ins'],['del','del'],['sub','sub'],['com','hl']].forEach(function(pair){
+    var key=pair[0], k=KIND[pair[1]];
+    var n=el('span','cnt',k.sym+' '+c[key]);
+    n.title=c[key]+' '+k.label.toLowerCase()+(c[key]===1?'':'s');
+    if(c[key]>0){ n.classList.add('on'); n.style.setProperty('--c',k.color); n.style.setProperty('--b',k.bg); }
+    box.appendChild(n);
+  });
+}
+
+function dirty(){ return S.loaded && S.text!==S.saved; }
+function renderChrome(){
+  $('#dirtyDot').classList.toggle('on',dirty());
+  $('#fileName').textContent=S.loaded?(S.name||'untitled.md'):'no file';
+  $('#btnUndo').disabled=!S.undo.length;
+  $('#btnRedo').disabled=!S.redo.length;
+  $('#btnSave').disabled=!S.loaded;
+  $('#btnCopy').disabled=!S.loaded;
+  document.title=(dirty()?'● ':'')+(S.name||'redline');
+  var note=$('#readonlyNote');
+  note.classList.toggle('on',S.view!=='source');
+  if(S.view==='accepted') note.textContent='Preview — all edits accepted. Read-only.';
+  if(S.view==='rejected') note.textContent='Preview — all edits rejected (original text). Read-only.';
+}
+
+function setView(v){
+  S.view=v;
+  Array.prototype.forEach.call($('#views').children,function(b){
+    b.classList.toggle('on',b.dataset.view===v);
+  });
+  hideToolbar();
+  render();
+}
+
+function render(){
+  S.anns=collect(tokenize(S.text));
+  if(S.view==='source') renderSource(); else renderPreview();
+  renderSidebar();
+  renderCounts();
+  renderChrome();
+  $('#empty').style.display=S.loaded?'none':'flex';
+}
+
+/* ==========================================================================
+   Selection -> floating toolbar
+   ========================================================================== */
+
+var TOOLS=[
+  {kind:'sub',label:'Replace',key:'r'},
+  {kind:'del',label:'Delete',key:'d'},
+  {kind:'hl', label:'Comment',key:'c'}
+];
+
+function hideToolbar(){ tb.classList.remove('on'); }
+
+function buildToolbar(collapsed){
+  tb.textContent='';
+  var set = collapsed ? [{kind:'ins',label:'Insert here',key:'i'}] : TOOLS;
+  set.forEach(function(t){
+    var b=el('button');
+    b.appendChild(el('span',null,t.label));
+    b.appendChild(el('kbd',null,t.key));
+    b.addEventListener('mousedown',function(e){ e.preventDefault(); });
+    b.addEventListener('click',function(){ openDialog(t.kind); });
+    tb.appendChild(b);
+  });
+}
+
+function placeToolbar(rect){
+  tb.classList.add('on');
+  var w=tb.offsetWidth, h=tb.offsetHeight;
+  var x=rect.left+rect.width/2-w/2;
+  var y=rect.top-h-8;
+  if(y<52) y=rect.bottom+8;
+  x=Math.max(10,Math.min(x,window.innerWidth-w-10));
+  tb.style.left=Math.round(x)+'px';
+  tb.style.top=Math.round(y)+'px';
+}
+
+function onSelectionChange(){
+  if(S.dialog||!S.loaded||S.view!=='source') return;
+  var sel=window.getSelection();
+  if(!sel||!sel.rangeCount){ S.pending=null; hideToolbar(); return; }
+  var r=sel.getRangeAt(0);
+  if(!doc.contains(r.startContainer)||!doc.contains(r.endContainer)){ S.pending=null; hideToolbar(); return; }
+  var a=pointToSrc(r.startContainer,r.startOffset);
+  var b=pointToSrc(r.endContainer,r.endOffset);
+  if(a===null||b===null){ S.pending=null; hideToolbar(); return; }
+  var start=Math.min(a,b), end=Math.max(a,b);
+  var rect=r.getBoundingClientRect();
+  if(!rect.width && !rect.height){
+    var host=(r.startContainer.nodeType===1?r.startContainer:r.startContainer.parentElement);
+    rect=host.getBoundingClientRect();
+  }
+  S.pending={start:start,end:end,rect:{left:rect.left,top:rect.top,bottom:rect.bottom,width:rect.width,height:rect.height}};
+  buildToolbar(start===end);
+  placeToolbar(S.pending.rect);
+}
+
+document.addEventListener('selectionchange',function(){
+  clearTimeout(onSelectionChange.t);
+  onSelectionChange.t=setTimeout(onSelectionChange,10);
+});
+pane.addEventListener('scroll',function(){ if(!S.dialog) hideToolbar(); });
+
+/* ==========================================================================
+   Dialog
+   ========================================================================== */
+
+var CFG={
+  sub:{title:'Replace',text:'Replacement text',reason:'Reason',needsText:true},
+  del:{title:'Delete',text:null,reason:'Reason'},
+  hl :{title:'Comment',text:null,reason:'Comment'},
+  ins:{title:'Insert',text:'Text to insert',reason:'Reason',needsText:true}
+};
+
+function openDialog(kind){
+  if(!S.pending){ toast('Select some text in the document first.'); return; }
+  var p=S.pending;
+  if(kind==='ins'){
+    if(p.start!==p.end){ p.end=p.start; }
+  }else if(p.start===p.end){
+    toast('Select some text first — there is nothing to '+CFG[kind].title.toLowerCase()+'.');
+    return;
+  }
+  var hit=overlapping(p.start,p.end);
+  if(hit){ refuse(hit); return; }
+
+  S.dialog=kind;
+  hideToolbar();
+  var c=CFG[kind];
+  $('#dlgTitle').textContent=c.title;
+  $('#lblReason').textContent=c.reason;
+  $('#reasonOpt').textContent = kind==='hl' ? '' : 'optional';
+
+  var ctx=$('#dlgCtx');
+  if(kind==='ins'){
+    var before=S.text.slice(Math.max(0,p.start-38),p.start), after=S.text.slice(p.start,p.start+38);
+    ctx.className='dlg-ctx caret';
+    ctx.textContent='…'+before+' ‸ '+after+'…';
+  }else{
+    ctx.className='dlg-ctx';
+    ctx.textContent=truncate(S.text.slice(p.start,p.end),260);
+  }
+
+  var row=$('#textRow');
+  row.style.display=c.text?'block':'none';
+  if(c.text){ $('#lblText').textContent=c.text; }
+  $('#fText').value='';
+  $('#fReason').value='';
+  $('#fReason').placeholder = kind==='hl' ? 'What should the author know?' : 'Why this edit?';
+
+  scrim.hidden=false; dlg.hidden=false;
+  placeDialog(p.rect);
+  $('#fReason').focus();
+}
+
+function placeDialog(rect){
+  var w=dlg.offsetWidth, h=dlg.offsetHeight;
+  var x=rect.left+rect.width/2-w/2;
+  var y=rect.bottom+10;
+  if(y+h>window.innerHeight-12) y=Math.max(56,rect.top-h-10);
+  if(y+h>window.innerHeight-12) y=Math.max(56,(window.innerHeight-h)/2);
+  x=Math.max(12,Math.min(x,window.innerWidth-w-12));
+  dlg.style.left=Math.round(x)+'px';
+  dlg.style.top=Math.round(y)+'px';
+}
+
+function closeDialog(){
+  S.dialog=null;
+  dlg.hidden=true; scrim.hidden=true;
+}
+
+function applyDialog(){
+  var kind=S.dialog;
+  if(!kind) return;
+  var text=clean($('#fText').value,'replacement text');
+  var reason=clean($('#fReason').value,'reason');
+  if(CFG[kind].needsText && !text.trim()){
+    var what = kind==='ins' ? 'Enter the text to insert.' : 'Enter replacement text — or use Delete to remove the selection.';
+    toast(what);
+    $('#fText').focus();
+    return;
+  }
+  if(kind==='sub' && text===S.text.slice(S.pending.start,S.pending.end)){
+    toast('The replacement is identical to the original.');
+    $('#fText').focus();
+    return;
+  }
+  closeDialog();
+  create(kind,text,reason);
+  window.getSelection().removeAllRanges();
+  S.pending=null;
+}
+
+$('#dlgApply').addEventListener('click',applyDialog);
+$('#dlgClose').addEventListener('click',closeDialog);
+scrim.addEventListener('mousedown',closeDialog);
+dlg.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){ e.preventDefault(); closeDialog(); }
+  else if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); applyDialog(); }
+});
+
+/* ==========================================================================
+   Files
+   ========================================================================== */
+
+function load(text,name,handle){
+  S.text=text.replace(/\r\n/g,'\n');
+  S.saved=S.text;
+  S.name=name||'untitled.md';
+  S.handle=handle||null;
+  S.loaded=true;
+  S.undo=[]; S.redo=[]; S.pending=null;
+  setView('source');
+  pane.scrollTop=0;
+  render();
+}
+
+var FSA = typeof window.showOpenFilePicker==='function';
+
+async function openFile(){
+  if(FSA){
+    try{
+      var picked=await window.showOpenFilePicker({
+        types:[{description:'Markdown',accept:{'text/markdown':['.md','.markdown','.mdown'],'text/plain':['.txt']}}]
+      });
+      var h=picked[0], f=await h.getFile();
+      load(await f.text(),f.name,h);
+      return;
+    }catch(err){
+      if(err && err.name==='AbortError') return;
+      // Fall through to the classic input when the picker is unavailable here.
+    }
+  }
+  $('#fileInput').click();
+}
+
+$('#fileInput').addEventListener('change',function(e){
+  var f=e.target.files&&e.target.files[0];
+  if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(){ load(String(rd.result),f.name,null); };
+  rd.readAsText(f);
+  e.target.value='';
+});
+
+function download(){
+  var blob=new Blob([S.text],{type:'text/markdown;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=el('a'); a.href=url; a.download=S.name||'annotated.md';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); },1500);
+  S.saved=S.text;
+  renderChrome();
+  toast('Downloaded '+(S.name||'annotated.md')+'.');
+}
+
+async function save(){
+  if(!S.loaded) return;
+  if(S.handle){
+    try{
+      var w=await S.handle.createWritable();
+      await w.write(S.text); await w.close();
+      S.saved=S.text; renderChrome();
+      toast('Saved to '+S.name+'.');
+      return;
+    }catch(err){
+      toast('Could not write the file in place ('+(err&&err.name||'error')+') — downloading instead.');
+    }
+  }else if(typeof window.showSaveFilePicker==='function'){
+    try{
+      var h=await window.showSaveFilePicker({
+        suggestedName:S.name||'annotated.md',
+        types:[{description:'Markdown',accept:{'text/markdown':['.md']}}]
+      });
+      var w2=await h.createWritable();
+      await w2.write(S.text); await w2.close();
+      S.handle=h; S.name=h.name; S.saved=S.text; renderChrome();
+      toast('Saved to '+S.name+'. Further saves write straight to this file.');
+      return;
+    }catch(err2){
+      if(err2 && err2.name==='AbortError') return;
+    }
+  }
+  download();
+}
+
+async function copyAll(){
+  if(!S.loaded) return;
+  try{
+    await navigator.clipboard.writeText(S.text);
+    toast('Copied the annotated markdown to the clipboard.');
+  }catch(err){
+    var ta=el('textarea'); ta.value=S.text;
+    ta.style.cssText='position:fixed;top:-9999px';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('Copied the annotated markdown to the clipboard.'); }
+    catch(e2){ toast('Copy failed — use Save instead.'); }
+    ta.remove();
+  }
+}
+
+/* ==========================================================================
+   Drag & drop
+   ========================================================================== */
+
+var dropZone=$('#drop'), dragDepth=0;
+window.addEventListener('dragenter',function(e){
+  if(!e.dataTransfer||Array.prototype.indexOf.call(e.dataTransfer.types,'Files')<0) return;
+  e.preventDefault(); dragDepth++; dropZone.classList.add('hot');
+});
+window.addEventListener('dragover',function(e){
+  if(!e.dataTransfer||Array.prototype.indexOf.call(e.dataTransfer.types,'Files')<0) return;
+  e.preventDefault(); e.dataTransfer.dropEffect='copy';
+});
+window.addEventListener('dragleave',function(){
+  dragDepth=Math.max(0,dragDepth-1);
+  if(!dragDepth) dropZone.classList.remove('hot');
+});
+window.addEventListener('drop',function(e){
+  if(!e.dataTransfer||!e.dataTransfer.files||!e.dataTransfer.files.length) return;
+  e.preventDefault();
+  dragDepth=0; dropZone.classList.remove('hot');
+  var f=e.dataTransfer.files[0];
+  if(dirty() && !confirm('Replace the current document? Unsaved annotations will be lost.')) return;
+  var rd=new FileReader();
+  rd.onload=function(){ load(String(rd.result),f.name,null); };
+  rd.readAsText(f);
+});
+
+/* ==========================================================================
+   Wiring
+   ========================================================================== */
+
+$('#btnOpen').addEventListener('click',function(){
+  if(dirty() && !confirm('Open another document? Unsaved annotations will be lost.')) return;
+  openFile();
+});
+$('#btnPick').addEventListener('click',openFile);
+$('#btnSave').addEventListener('click',save);
+$('#btnCopy').addEventListener('click',copyAll);
+$('#btnUndo').addEventListener('click',undo);
+$('#btnRedo').addEventListener('click',redo);
+$('#btnPaste').addEventListener('click',function(){
+  var v=$('#pasteBox').value;
+  if(!v.trim()){ toast('Paste some markdown first.'); return; }
+  load(v,'pasted.md',null);
+});
+Array.prototype.forEach.call($('#views').children,function(b){
+  b.addEventListener('click',function(){ setView(b.dataset.view); });
+});
+
+function isTyping(t){
+  return t && (t.tagName==='TEXTAREA'||t.tagName==='INPUT'||t.isContentEditable);
+}
+
+window.addEventListener('keydown',function(e){
+  var mod=e.metaKey||e.ctrlKey;
+  if(mod && !e.altKey && e.key.toLowerCase()==='z'){
+    e.preventDefault();
+    if(e.shiftKey) redo(); else undo();
+    return;
+  }
+  if(mod && e.key.toLowerCase()==='s'){ e.preventDefault(); save(); return; }
+  if(S.dialog) return;
+  if(e.key==='Escape'){ hideToolbar(); return; }
+  if(mod||e.altKey||isTyping(e.target)) return;
+  if(!S.loaded||S.view!=='source'||!S.pending) return;
+  var k=e.key.toLowerCase();
+  var collapsed=S.pending.start===S.pending.end;
+  if(!collapsed && (k==='r'||k==='d'||k==='c')){
+    e.preventDefault();
+    openDialog(k==='r'?'sub':k==='d'?'del':'hl');
+  }else if(k==='i'){
+    e.preventDefault();
+    openDialog('ins');
+  }
+});
+
+window.addEventListener('beforeunload',function(e){
+  if(!dirty()) return;
+  e.preventDefault();
+  e.returnValue='';
+});
+
+render();
+})();
+</script>
+</body>
+</html>

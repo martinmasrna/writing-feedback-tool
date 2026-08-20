@@ -20,20 +20,47 @@
 import { tokenize } from './criticmarkup.js';
 
 /**
+ * The last document resolved, kept so the same one is not resolved five times
+ * over for a single keystroke.
+ *
+ * `applyAction` alone asks for the visible document through `blockFor`,
+ * `paragraphBreak` and `markerBefore`, and each pass walks every character in
+ * the file. On a long document that was most of the cost of typing.
+ *
+ * Safe only because the result is treated as read-only everywhere. If anything
+ * ever mutates `spans`, `map` or `comments`, this cache hands the damage to the
+ * next caller.
+ */
+let lastSource = null;
+let lastVisible = null;
+
+/**
  * @returns {{text:string, map:number[], spans:Array, comments:Array, sourceLength:number}}
  */
 export function toVisible(source) {
-  const out = [];
-  const map = [];
+  if (source === lastSource) return lastVisible;
+  const built = resolve(source);
+  lastSource = source;
+  lastVisible = built;
+  return built;
+}
+
+function resolve(source) {
+  const parts = [];
+  // At most one visible character per source character, plus the end marker.
+  // Preallocating and writing by index rather than pushing per character is
+  // most of what this function costs on a long document.
+  const map = new Array(source.length + 1);
   const spans = [];
   const comments = [];
+  /** Visible characters emitted so far — the offset the next one will take. */
+  let len = 0;
 
   /** Copy source [from,to) through to the visible text, recording provenance. */
   const copy = (from, to) => {
-    for (let i = from; i < to; i++) {
-      out.push(source.charAt(i));
-      map.push(i);
-    }
+    if (to <= from) return;
+    parts.push(source.slice(from, to));
+    for (let i = from; i < to; i++) map[len++] = i;
   };
 
   let lastAnnotation = null;
@@ -49,7 +76,7 @@ export function toVisible(source) {
       // A comment straight after an edit is that edit's reason; otherwise it
       // floats free. Either way it leaves the text flow.
       comments.push({
-        at: out.length,
+        at: len,
         text: t.a,
         annStart: lastAnnotation ? lastAnnotation.start : null,
         orphan: !lastAnnotation,
@@ -67,26 +94,27 @@ export function toVisible(source) {
       const oldEnd = oldStart + t.a.length;
       const newStart = oldEnd + 2;
       const newEnd = t.end - 3;
-      const delFrom = out.length;
+      const delFrom = len;
       copy(oldStart, oldEnd);
-      const insFrom = out.length;
+      const insFrom = len;
       copy(newStart, newEnd);
       const span = { start: delFrom, end: insFrom, kind: 'del', annStart: t.start, pair: true };
-      const span2 = { start: insFrom, end: out.length, kind: 'ins', annStart: t.start, pair: true };
+      const span2 = { start: insFrom, end: len, kind: 'ins', annStart: t.start, pair: true };
       spans.push(span, span2);
-      lastAnnotation = { start: t.start, end: out.length, commented: false };
+      lastAnnotation = { start: t.start, end: len, commented: false };
       continue;
     }
 
     const kind = t.type === 'ins' ? 'ins' : t.type === 'del' ? 'del' : 'hl';
-    const from = out.length;
+    const from = len;
     copy(bodyStart, t.end - 3);
-    spans.push({ start: from, end: out.length, kind, annStart: t.start });
-    lastAnnotation = { start: t.start, end: out.length, commented: false };
+    spans.push({ start: from, end: len, kind, annStart: t.start });
+    lastAnnotation = { start: t.start, end: len, commented: false };
   }
 
-  map.push(source.length); // so a caret at the very end still maps
-  return { text: out.join(''), map, spans, comments, sourceLength: source.length };
+  map[len] = source.length;   // so a caret at the very end still maps
+  map.length = len + 1;
+  return { text: parts.join(''), map, spans, comments, sourceLength: source.length };
 }
 
 /** Source offset for a visible offset. */

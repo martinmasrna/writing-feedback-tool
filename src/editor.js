@@ -97,12 +97,11 @@ export function blockJoinBefore(text, caret, view) {
  * has to hold for ordinary typing, not only for the structural commands.
  */
 export function crossesUnsupported(text, sel) {
-  const blocks = parseBlocks(text);
   if (collapsed(sel)) {
     const here = blockFor(text, sel.start);
     return here && here.type === 'unsupported' && sel.start > here.start && sel.start < here.end ? here : null;
   }
-  return blocks.find((b) => b.type === 'unsupported' && sel.start < b.end && sel.end > b.start) || null;
+  return parseBlocks(text).find((b) => b.type === 'unsupported' && sel.start < b.end && sel.end > b.start) || null;
 }
 
 const MUTATING = new Set([

@@ -264,6 +264,9 @@ const OFFSETS = ['start', 'end', 'contentStart', 'contentEnd', 'markerStart', 'm
 export function parseBlocks(text) {
   const visible = toVisible(text);
   const blocks = parseVisibleBlocks(visible.text, visible.spans);
+  // Parsed once, not once per heading: doing it inside the loop made this
+  // quadratic in the length of the document.
+  const anns = parse(text);
   return blocks.map((b) => {
     const mapped = { ...b, visible: {} };
     for (const key of OFFSETS) {
@@ -271,7 +274,7 @@ export function parseBlocks(text) {
       mapped.visible[key] = b[key];
       mapped[key] = toSource(visible, b[key]);
     }
-    if (mapped.type === 'heading') mapped.level = headingLevel(text, mapped);
+    if (mapped.type === 'heading') mapped.level = headingLevel(text, anns, mapped);
     return mapped;
   });
 }
@@ -284,12 +287,12 @@ export function parseBlocks(text) {
  * naively the block reads as level 3, a level nobody chose. Take the level the
  * change is moving toward instead.
  */
-function headingLevel(text, block) {
+function headingLevel(text, anns, block) {
   // Widen to whole annotations, or the slice cuts a delimiter in half and
   // resolves to nothing.
   let from = block.markerStart;
   let to = block.contentStart;
-  for (const a of parse(text)) {
+  for (const a of anns) {
     if (a.start < to && a.end > from) { from = Math.min(from, a.start); to = Math.max(to, a.end); }
   }
   const marker = transform(text.slice(from, to), 'accepted');

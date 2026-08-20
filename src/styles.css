@@ -85,15 +85,16 @@ main{display:flex;height:calc(100% - 46px)}
 .item{display:grid;grid-template-columns:1fr auto;gap:6px;padding:11px 12px 11px 15px;
   border-bottom:1px solid var(--line-2);cursor:pointer;transition:background .12s ease}
 .item:hover{background:#f7f5f2}
-.item .kind{font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
-  margin-bottom:4px;display:flex;align-items:center;gap:6px}
-.item .kind i{font-style:normal;color:var(--ink-3);font-weight:400;letter-spacing:0;
-  text-transform:none;font-size:11px;font-family:var(--mono)}
 .item .ex{font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--ink);
   word-break:break-word;margin-bottom:5px}
 .item .ex del{color:var(--del);text-decoration-color:var(--del-ln)}
 .item .ex ins{color:var(--ins);text-decoration:none}
 .item .ex .arrow{color:var(--ink-3);padding:0 5px}
+.item .ex .sign{-webkit-user-select:none;user-select:none;font-weight:600;margin-right:6px}
+.item .ex .sign-ins{color:var(--ins)}
+.item .ex .sign-del{color:var(--del)}
+.item .ex mark.hl{background:var(--com-bg);color:var(--ink);border-radius:3px;padding:0 2px;
+  box-shadow:inset 0 -1px 0 var(--com-ln)}
 .item .why{font-size:12px;line-height:1.5;color:var(--ink-2);word-break:break-word;
   border-radius:5px;padding:2px 4px;margin:-2px -4px;transition:background .12s ease}
 .item .why:hover{background:rgba(23,24,26,.06)}
@@ -305,6 +306,9 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 }
 
 .item .ex.ex-structural{font-family:var(--ui);font-style:italic;color:var(--ink-2)}
+.item .ex.ex-ins{color:var(--ins)}
+.item .ex.ex-del{color:var(--del)}
+.item .ex.ex-note{font-family:var(--ui);font-style:italic;color:var(--ink-3)}
 
 /* Unexplained edits: visible, never blocking. */
 .pending{display:none;border:0;background:transparent;padding:2px 7px;border-radius:5px;

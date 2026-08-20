@@ -36,22 +36,37 @@ function structural(a) {
   return null;
 }
 
+/**
+ * The sign that says what kind of edit this is, since nothing else does.
+ *
+ * The excerpt used to sit under a DELETE or INSERT header, which named in
+ * words what the colour and the strike already said. A replacement needs no
+ * sign at all — two colours either side of an arrow is what a replacement
+ * looks like — and a comment is its own highlight.
+ */
+const sign = (kind) => {
+  const n = el('span', `sign sign-${kind}`, KINDS[kind].sym);
+  n.setAttribute('aria-hidden', 'true');
+  return n;
+};
+
 function excerpt(a) {
   const n = el('div', 'ex');
   const asStructure = structural(a);
   if (asStructure) {
-    n.classList.add('ex-structural');
-    n.textContent = asStructure;
+    n.classList.add('ex-structural', `ex-${a.type}`);
+    if (a.type !== 'sub') n.append(sign(a.type));
+    n.append(document.createTextNode(asStructure));
     return n;
   }
   if (a.type === 'sub') {
     n.append(el('del', null, truncate(a.a, 60)), el('span', 'arrow', '→'), el('ins', null, truncate(a.b, 60)));
   } else if (a.type === 'ins') {
-    n.append(el('ins', null, truncate(a.a, 120)));
+    n.append(sign('ins'), el('ins', null, truncate(a.a, 120)));
   } else if (a.type === 'del') {
-    n.append(el('del', null, truncate(a.a, 120)));
+    n.append(sign('del'), el('del', null, truncate(a.a, 120)));
   } else {
-    n.textContent = truncate(a.a, 120);
+    n.append(el('mark', 'hl', truncate(a.a, 120)));
   }
   return n;
 }
@@ -102,13 +117,8 @@ export function createSidebar(refs, { onReveal, onRemove, onReason }) {
       item.dataset.i = String(i);
       const main = el('div');
 
-      const kind = el('div', 'kind');
-      kind.style.color = KINDS[a.type].color;
-      kind.append(el('span', null, `${KINDS[a.type].sym} ${KINDS[a.type].label}`));
-      if (a.type === 'com') kind.append(el('i', null, 'unanchored'));
-      main.append(kind);
-
-      if (a.type !== 'com') main.append(excerpt(a));
+      // A comment with nothing under it has no text to show, so it says so.
+      main.append(a.type === 'com' ? el('div', 'ex ex-note', 'unanchored note') : excerpt(a));
 
       const why = el('div', 'why');
       if (hasReason(a)) why.textContent = a.reason.trim();

@@ -52,6 +52,16 @@ function header() {
   };
 }
 
+/**
+ * What the excerpt says, without the sign in front of it. The sign stands in
+ * for the DELETE / INSERT header the item used to carry.
+ */
+function says(list) {
+  const ex = list.querySelector('.ex');
+  const sign = ex.querySelector('.sign');
+  return sign ? ex.textContent.slice(sign.textContent.length) : ex.textContent;
+}
+
 /* --- structural edits are described, not quoted ---------------------------- */
 
 const descriptions = [
@@ -71,28 +81,49 @@ const descriptions = [
 
 for (const [source, expected] of descriptions) {
   test(`the sidebar reads ${JSON.stringify(source)} as ${JSON.stringify(expected)}`, () => {
-    assert.equal(sidebar().show(source).querySelector('.ex').textContent, expected);
+    assert.equal(says(sidebar().show(source)), expected);
   });
 }
 
 test('an ordinary edit is quoted rather than described', () => {
   const s = sidebar();
-  assert.equal(s.show('{--ordinary text--}').querySelector('.ex').textContent, 'ordinary text');
-  assert.equal(s.show('{~~old~>new~~}').querySelector('.ex').textContent, 'old→new');
+  assert.equal(says(s.show('{--ordinary text--}')), 'ordinary text');
+  assert.equal(says(s.show('{~~old~>new~~}')), 'old→new');
 });
 
 /* --- the list itself -------------------------------------------------------- */
 
-test('one item per annotation, each with a kind and a reason line', () => {
+test('one item per annotation, each with an excerpt and a reason line', () => {
   const source = 'A {--cut--}{>>redundant<<} and an {++add++} and a {~~old~>new~~}.\n';
   const list = sidebar().show(source);
   assert.equal(list.querySelectorAll('.item').length, 3);
   for (const item of list.querySelectorAll('.item')) {
-    assert.ok(item.querySelector('.kind'), 'says what kind of edit it is');
+    assert.ok(item.querySelector('.ex'), 'shows what was edited');
     assert.ok(item.querySelector('.why'), 'and offers somewhere for the reason');
   }
   assert.equal(list.querySelector('.why').textContent, 'redundant');
   assert.ok(list.querySelectorAll('.why.none').length, 'the unexplained ones say so');
+});
+
+test('the excerpt says what kind of edit it is without naming it', () => {
+  const s = sidebar();
+  const cut = s.show('A {--cut--} here.\n').querySelector('.ex');
+  assert.ok(cut.querySelector('.sign-del'), 'a deletion is signed');
+  assert.ok(cut.querySelector('del'), 'and struck');
+
+  const add = s.show('A {++add++} here.\n').querySelector('.ex');
+  assert.ok(add.querySelector('.sign-ins'));
+  assert.ok(add.querySelector('ins'));
+
+  const sub = s.show('A {~~old~>new~~} here.\n').querySelector('.ex');
+  assert.equal(sub.querySelector('.sign'), null, 'two colours either side of an arrow need no sign');
+  assert.ok(sub.querySelector('del') && sub.querySelector('.arrow') && sub.querySelector('ins'));
+
+  const note = s.show('A {==phrase==}{>>a note<<} here.\n').querySelector('.ex');
+  assert.ok(note.querySelector('mark.hl'), 'a comment is drawn as the highlight it is');
+
+  const loose = s.show('A line{>>unanchored<<} of prose.\n').querySelector('.ex');
+  assert.equal(loose.textContent, 'unanchored note', 'and one with nothing under it says so');
 });
 
 test('an empty document says how to start', () => {

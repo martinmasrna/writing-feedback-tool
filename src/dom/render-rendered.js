@@ -46,18 +46,28 @@ export function buildRendered(source) {
   const commented = new Set(visible.comments.filter((c) => c.annStart !== null).map((c) => c.annStart));
   const reasonFor = new Map(visible.comments.filter((c) => c.annStart !== null).map((c) => [c.annStart, c.text]));
 
+  /**
+   * A reason is a footnote, not an interruption.
+   *
+   * Both marks are a dot the width of a letter, carrying their text in
+   * `data-reason` for the hover bubble the stylesheet draws. Setting it inline
+   * put a sentence of review commentary in the middle of the sentence under
+   * review — a two-word substitution ended up shorter than the note about it.
+   * The text is still read in full in the sidebar, and in the dialog a click
+   * on the mark opens.
+   */
   const chip = (body, annStart) => {
     const node = chrome(el('span', 'r-com'));
-    node.textContent = body;
-    node.title = body;
+    node.dataset.reason = body;
+    node.setAttribute('aria-label', body);
     if (annStart !== undefined) node.dataset.ann = String(annStart);
     return node;
   };
   const noReason = (annStart) => {
     const node = chrome(el('span', 'r-noreason'));
-    node.textContent = 'no reason';
+    node.dataset.reason = 'No reason yet — click to explain this edit';
     node.dataset.ann = String(annStart);
-    node.title = 'Click to explain this edit';
+    node.setAttribute('aria-label', 'No reason given');
     return node;
   };
 

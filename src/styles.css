@@ -250,20 +250,37 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   text-decoration:line-through;text-decoration-color:var(--del-ln)}
 #doc.rendered .r-hl{background:var(--com-bg);border-radius:3px;
   box-shadow:inset 0 -1px 0 var(--com-ln)}
-#doc.rendered .r-com{
-  -webkit-user-select:none;user-select:none;
-  font-size:.78em;color:var(--com);background:var(--com-bg);
-  box-shadow:inset 0 0 0 1px var(--com-ln);border-radius:5px;
-  padding:.1em .45em;margin-left:.3em;vertical-align:.08em;
-  cursor:default;
-}
-#doc.rendered .r-noreason{
+/* A reason is a footnote: a mark on the line, the text on hover. Filled where
+   there is a reason, hollow where one is still owed. */
+#doc.rendered .r-com,#doc.rendered .r-noreason{
+  display:inline-block;position:relative;width:7px;height:7px;border-radius:50%;
+  margin:0 .1em 0 .22em;vertical-align:.42em;
   -webkit-user-select:none;user-select:none;cursor:pointer;
-  font-size:.68em;letter-spacing:.04em;text-transform:uppercase;color:var(--del);
-  border:1px dashed var(--del-ln);border-radius:4px;padding:0 .35em;
-  margin-left:.3em;vertical-align:.15em;white-space:nowrap;
 }
+#doc.rendered .r-com{background:var(--com)}
+#doc.rendered .r-noreason{box-shadow:inset 0 0 0 1.5px var(--del)}
 #doc.rendered .r-noreason:hover{background:var(--del-bg)}
+#doc.rendered .r-com:hover{box-shadow:0 0 0 2px var(--com-ln)}
+
+/* A dot is too small to aim at, so the hit area grows — upward into the empty
+   space above the line and back over the change's own last letter, never to
+   the right. The position just past an annotation is one the caret has to be
+   able to reach, and a halo over it swallows the click that puts it there. */
+#doc.rendered .r-com::before,#doc.rendered .r-noreason::before{
+  content:'';position:absolute;inset:-6px 0 -1px -4px;
+}
+#doc.rendered .r-com::after,#doc.rendered .r-noreason::after{
+  content:attr(data-reason);
+  position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+  z-index:30;width:max-content;max-width:20em;
+  font-family:var(--ui);font-size:11.5px;line-height:1.45;
+  font-style:normal;font-weight:400;letter-spacing:0;text-transform:none;
+  text-align:left;text-decoration:none;color:#fff;
+  background:var(--ink);border-radius:6px;padding:5px 8px;
+  box-shadow:0 4px 14px rgba(23,24,26,.18);
+  opacity:0;pointer-events:none;transition:opacity .12s ease;
+}
+#doc.rendered .r-com:hover::after,#doc.rendered .r-noreason:hover::after{opacity:1}
 
 /* Blocks we do not fully understand: shown, not edited. */
 #doc.rendered .island{

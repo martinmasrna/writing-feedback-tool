@@ -195,12 +195,15 @@ export function createApp() {
   pane.addEventListener('scroll', () => { if (!dialog.open) toolbar.hide(); });
 
   doc.addEventListener('click', (e) => {
-    const marker = e.target.closest ? e.target.closest('.noreason, .r-noreason') : null;
+    // The rendered view's footnote marks address their annotation by source
+    // offset; the source view's flag by index. A reason mark opens the same
+    // dialog as an empty one — the prompt prefills, so it reads as an edit.
+    const marker = e.target.closest ? e.target.closest('.noreason, .r-noreason, .r-com') : null;
     if (!marker) return;
     e.preventDefault();
-    const a = marker.classList.contains('r-noreason')
-      ? store.state.anns.find((x) => x.start === Number(marker.dataset.ann))
-      : store.state.anns[Number(marker.dataset.ann)];
+    const a = marker.classList.contains('noreason')
+      ? store.state.anns[Number(marker.dataset.ann)]
+      : store.state.anns.find((x) => x.start === Number(marker.dataset.ann));
     if (a) dialog.openReasonPrompt(a, store.state.caret, rectOf(a));
   });
 

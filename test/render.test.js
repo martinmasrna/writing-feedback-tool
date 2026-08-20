@@ -268,9 +268,11 @@ test('the screen and the editing model agree on a heading mid-change', () => {
 test('everything with no source behind it is marked virtual', () => {
   const r = render('An edit {--with--}{>>because<<} a reason.\n');
   const chip = r.host.querySelector('.r-com');
-  assert.ok(chip, 'the reason renders as a chip');
+  assert.ok(chip, 'the reason renders as a mark');
   assert.equal(chip.dataset.virtual, '1');
   assert.equal(isVirtual(chip), true);
+  assert.equal(chip.textContent, '', 'the mark is a dot, not the reason spelled out');
+  assert.equal(chip.dataset.reason, 'because', 'which the hover bubble reads from');
   assert.equal(screenText(r.host).includes('because'), false, 'and stays out of the text flow');
 });
 
@@ -279,6 +281,8 @@ test('an unexplained edit is marked, and the marker is virtual', () => {
   const flag = r.host.querySelector('.r-noreason');
   assert.ok(flag);
   assert.equal(flag.dataset.virtual, '1');
+  assert.equal(flag.textContent, '', 'and takes no room in the line');
+  assert.ok(flag.dataset.reason, 'but says what it wants on hover');
 });
 
 test('a rule and an island label are chrome', () => {

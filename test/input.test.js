@@ -15,6 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { installDom } from './dom.js';
 import { attachInput, attachShortcuts } from '../src/input.js';
+import { editor } from './harness.js';
 
 const doc = installDom();
 
@@ -212,4 +213,18 @@ test('composition itself is left alone until it ends', () => {
   const w = wired();
   assert.equal(w.fire('insertCompositionText').defaultPrevented, false);
   assert.equal(w.seen.actions.length, 0, 'nothing is applied mid-composition');
+});
+
+test('dragging text within the document does not duplicate it', () => {
+  // A drag is two events: the source is deleted, then the text is inserted at
+  // the drop point. Nothing reads the drop point out of `getTargetRanges`, so
+  // it lands back where it started and the two cancel. That leaves the drag
+  // doing nothing, which is a limitation — but it used to leave a copy behind,
+  // which is a bug.
+  const ed = editor('Alpha beta gamma.\n').select('beta');
+  const dragged = 'beta';
+  ed.press('Cut');
+  assert.equal(ed.source, 'Alpha {--beta--} gamma.\n');
+  ed.paste(dragged);
+  assert.equal(ed.source, 'Alpha beta gamma.\n', 'and the pair cancels rather than doubling the word');
 });

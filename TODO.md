@@ -43,6 +43,12 @@ worth it once 1 and 2 stop finding things.
 
 ## Known gaps, unfixed
 
+- **Dragging text within the document does nothing.** The drop point is never
+  read out of `beforeinput`'s `getTargetRanges()`, so the text is re-inserted
+  where it was deleted from and the two cancel. It used to leave a copy behind,
+  which was worse. Fixing it properly needs a real browser to check what Chrome
+  reports there; paste works.
+
 - **Structural commands are keyboard-only.** ⌘B, ⌘⇧8, ⌘⌥1–6 and the rest have
   nothing on screen advertising them, so they are undiscoverable. The floating
   toolbar offers only Replace / Delete / Comment.

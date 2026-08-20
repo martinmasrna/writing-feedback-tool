@@ -54,7 +54,7 @@ export function download(text, name) {
 
 /**
  * Save, writing in place when we can.
- * @returns {Promise<{status:string, name?:string, handle?:string, detail?:string}>}
+ * @returns {Promise<{status:string, name?:string, handle?:FileSystemFileHandle, detail?:string}>}
  */
 export async function saveDocument(text, name, handle) {
   if (handle) {

@@ -123,7 +123,19 @@ export function applyAction(state, action) {
 
   if (MUTATING.has(action.type)) {
     const island = crossesUnsupported(text, sel);
-    if (island) return { blocked: { kind: 'unsupported', reason: island.reason } };
+    // The Source view is where islands are edited — that is the whole reason it
+    // exists, and refusing there left the documented escape hatch shut. Every
+    // character is on screen and editable, so an edit that stays inside one is
+    // the user changing exactly what they can see.
+    //
+    // A range that reaches across an island's boundary is still refused, in
+    // either view: striking one out makes `splitLines` stop seeing the line
+    // breaks inside it, the fence stops being a fence, and the document
+    // collapses around it when you switch back.
+    const escapes = sel.start < island?.start || sel.end > island?.end;
+    if (island && (view !== 'source' || escapes)) {
+      return { blocked: { kind: 'unsupported', reason: island.reason } };
+    }
   }
 
   switch (action.type) {

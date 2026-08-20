@@ -78,3 +78,37 @@ test('Enter in the source view inserts one newline', () => {
   const ed = editor('# T\n\nBody.\n', { view: 'source' }).caretAfter('Body').press('Enter');
   assert.equal(ed.source, '# T\n\nBody{++\n++}.\n');
 });
+
+/* --- islands are edited here, which is what the view is for ---------------- */
+
+const FENCED = 'Before\n\n```js\nconst x = 1;\n```\n\nAfter\n';
+
+test('a code block can be edited in the Source view', () => {
+  // The rendered view draws it as a read-only island and says to come here.
+  // Refusing here too left that escape hatch shut.
+  const ed = editor(FENCED, { view: 'source' }).select('const').type('let');
+  assert.equal(ed.source, 'Before\n\n```js\n{~~const~>let~~} x = 1;\n```\n\nAfter\n');
+  assert.equal(ed.accepted, 'Before\n\n```js\nlet x = 1;\n```\n\nAfter\n');
+  assert.equal(ed.rejected, FENCED);
+});
+
+test('and the island is still an island afterwards', () => {
+  const ed = editor(FENCED, { view: 'source' }).select('const').type('let');
+  const r = buildSource(ed.source);
+  assert.equal(screenText(r.host), ed.source, 'the source view still shows the file exactly');
+});
+
+test('the rendered view still refuses to edit inside one', () => {
+  const ed = editor(FENCED).caretAt(FENCED.indexOf('const') + 2).type('Y');
+  assert.equal(ed.source, FENCED);
+});
+
+test('neither view lets a selection reach across an island', () => {
+  // Striking one out makes `splitLines` stop seeing the line breaks inside it:
+  // the fence stops being a fence and the document collapses around it.
+  for (const view of ['source', 'rendered']) {
+    const ed = editor(FENCED, { view })
+      .selectRange(0, FENCED.indexOf('After') + 5).press('Backspace');
+    assert.equal(ed.source, FENCED, view);
+  }
+});

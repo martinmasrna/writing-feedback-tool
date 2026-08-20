@@ -84,6 +84,17 @@ main{display:flex;height:100%}
   content:'';position:absolute;left:0;right:0;top:100%;height:16px;pointer-events:none;
   background:linear-gradient(var(--paper),rgba(250,249,247,0));
 }
+/* The shortcut list, at hand rather than in the way: it opens from the row and
+   travels with it, instead of filling the screen you land on. */
+#help{
+  position:absolute;top:100%;right:32px;z-index:30;margin-top:6px;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:13px 15px;box-shadow:0 12px 34px rgba(23,24,26,.16),0 2px 6px rgba(23,24,26,.06);
+}
+#btnHelp.on{background:#efedE8;color:var(--ink)}
+/* With the panel open the label is answering a question nobody still has. */
+#btnHelp.on::after{content:none}
+
 #btnSave.dirty::before{
   content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;
   border-radius:50%;background:var(--paper);
@@ -190,7 +201,7 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 #drop p{margin:0 0 16px;color:var(--ink-3);font-size:12.5px;line-height:1.6}
 #paste{margin-top:14px}
 #paste textarea{font-family:var(--mono);font-size:12px;line-height:1.5;height:96px}
-.keys{margin-top:18px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;
+.keys{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;
   font-size:11.5px;color:var(--ink-3);align-items:baseline}
 .keys kbd{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--surface);
   border:1px solid var(--line);border-radius:4px;padding:1px 5px;justify-self:start;white-space:nowrap}

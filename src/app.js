@@ -314,7 +314,7 @@ export function createApp() {
       if (pendingSelection && pendingSelection.end > pendingSelection.start) openForm('hl');
       else toast('Select the passage you want to comment on first.');
     },
-    escape: () => toolbar.hide(),
+    escape: () => { showHelp(false); toolbar.hide(); },
     dialogOpen: () => dialog.open,
     commands,
   });
@@ -365,6 +365,19 @@ export function createApp() {
   $('#btnOpen').addEventListener('click', open);
   $('#btnPick').addEventListener('click', open);
   $('#btnSave').addEventListener('click', save);
+  // The shortcut list lives behind a button, and closes the way a menu does.
+  const help = $('#help');
+  const helpBtn = $('#btnHelp');
+  function showHelp(on) {
+    help.hidden = !on;
+    helpBtn.classList.toggle('on', on);
+    helpBtn.setAttribute('aria-expanded', String(on));
+  }
+  helpBtn.addEventListener('click', (e) => { e.stopPropagation(); showHelp(help.hidden); });
+  document.addEventListener('click', (e) => {
+    if (!help.hidden && !help.contains(e.target)) showHelp(false);
+  });
+
   $('#btnCopy').addEventListener('click', async () => {
     if (!store.state.loaded) return;
     const ok = await files.copyToClipboard(store.state.text);

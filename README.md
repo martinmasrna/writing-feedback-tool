@@ -31,11 +31,15 @@ ten minutes later. So an unexplained edit is *marked* instead: inline, in the
 sidebar, and in the header counter. Click its sidebar entry to write the
 reason, or press ⌘⌥R to walk through what is still outstanding.
 
-Inline, nothing is drawn for a reason at all. The change is already on screen,
-so it carries both states itself: its outline is dashed while a reason is
-owed — the margin bar of a structural change goes dotted the same way — and
-hovering it reads the reason once there is one. A comment with no edit under it
-is the one thing with nothing to shade, so it keeps a mark of its own.
+Inline, nothing is drawn for a reason at all — the rendered view puts no glyph
+of its own into the prose. The change is already on screen, so it carries both
+states itself: its outline is dashed while a reason is owed — the margin bar of
+a structural change goes dotted the same way — and hovering it reads the reason
+once there is one.
+
+A comment with no annotation before it is the one thing with nothing to shade.
+It arrives that way in a file; nothing in the app writes one. It draws nothing
+in the rendered view and is read, edited and removed in the sidebar.
 
 The text of a reason never sits in the line. A sentence of review commentary
 set in the middle of the sentence under review is unreadable, and the sidebar
@@ -120,7 +124,7 @@ whenever an edit landed inside it.
 **The browser never mutates the document.** `#doc` is `contenteditable`, but
 every `beforeinput` is cancelled and turned into an operation on the markdown
 string, which is then re-rendered. Anything that must not be edited — delimiters,
-struck text, comment marks — is `contenteditable="false"`.
+struck text, unsupported blocks — is `contenteditable="false"`.
 
 **Anything about where the caret is gets asked in visible coordinates.** Source
 offsets lie whenever markup is in the way, and quietly: two offsets six

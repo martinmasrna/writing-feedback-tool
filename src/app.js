@@ -195,16 +195,14 @@ export function createApp() {
   pane.addEventListener('scroll', () => { if (!dialog.open) toolbar.hide(); });
 
   doc.addEventListener('click', (e) => {
-    // The rendered view marks a standalone comment by source offset; the
-    // source view's unexplained-edit flag by index. Changes themselves are not
-    // click targets: an insertion is text you are still typing into, and the
-    // click that puts the caret there cannot also open a dialog.
-    const marker = e.target.closest ? e.target.closest('.noreason, .r-com') : null;
+    // Only the source view's unexplained-edit flag is a click target, and it
+    // addresses its annotation by index. In the rendered view nothing stands
+    // beside a change to click: an insertion is text you are still typing
+    // into, and the click that puts the caret there cannot also open a dialog.
+    const marker = e.target.closest ? e.target.closest('.noreason') : null;
     if (!marker) return;
     e.preventDefault();
-    const a = marker.classList.contains('noreason')
-      ? store.state.anns[Number(marker.dataset.ann)]
-      : store.state.anns.find((x) => x.start === Number(marker.dataset.ann));
+    const a = store.state.anns[Number(marker.dataset.ann)];
     if (a) dialog.openReasonPrompt(a, store.state.caret, rectOf(a));
   });
 

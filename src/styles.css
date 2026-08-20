@@ -267,21 +267,10 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   background-image:repeating-linear-gradient(180deg,transparent 0 2px,var(--paper) 2px 4px);
 }
 
-/* A comment with no edit under it has nothing to shade, so it keeps a mark. */
-#doc.rendered .r-com{
-  display:inline-block;position:relative;width:7px;height:7px;border-radius:50%;
-  margin:0 .1em 0 .22em;vertical-align:.42em;background:var(--com);
-  -webkit-user-select:none;user-select:none;cursor:pointer;
-}
-#doc.rendered .r-com:hover{box-shadow:0 0 0 2px var(--com-ln)}
-#doc.rendered .r-com::before{content:'';position:absolute;inset:-6px 0 -1px -4px}
-
 /* The reason itself, on hover. */
-#doc.rendered .r-com,
 #doc.rendered .r-ins[data-reason],
 #doc.rendered .r-del[data-reason],
 #doc.rendered .r-hl[data-reason]{position:relative}
-#doc.rendered .r-com::after,
 #doc.rendered .r-ins[data-reason]::after,
 #doc.rendered .r-del[data-reason]::after,
 #doc.rendered .r-hl[data-reason]::after{
@@ -295,7 +284,6 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   box-shadow:0 4px 14px rgba(23,24,26,.18);
   opacity:0;pointer-events:none;transition:opacity .12s ease;
 }
-#doc.rendered .r-com:hover::after,
 #doc.rendered .r-ins[data-reason]:hover::after,
 #doc.rendered .r-del[data-reason]:hover::after,
 #doc.rendered .r-hl[data-reason]:hover::after{opacity:1}

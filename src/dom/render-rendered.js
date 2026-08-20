@@ -16,8 +16,8 @@
  *
  * The renderer emits an explicit source mapping for every text node it creates,
  * because unlike the source view it does not put every character on screen.
- * Anything unmapped — bullets, comment chips, island labels — is chrome the
- * caret cannot address.
+ * Anything unmapped — bullets, island labels, rules — is chrome the caret
+ * cannot address.
  */
 
 import { toVisible, toSource, sliceSpans } from '../visible.js';
@@ -66,18 +66,6 @@ export function buildRendered(source) {
     }
   }
 
-  /**
-   * A comment with no edit under it has nothing to shade, so it keeps a mark
-   * of its own — the one place a dot in the prose is the only way to say
-   * anything at all.
-   */
-  const chip = (body, annStart) => {
-    const node = chrome(el('span', 'r-com'));
-    node.dataset.reason = body;
-    node.setAttribute('aria-label', body);
-    if (annStart !== undefined) node.dataset.ann = String(annStart);
-    return node;
-  };
 
   /** Struck and highlighted text: on screen, but never typed into. */
   const unedittable = (piece) => !!piece && !!piece.kind && piece.kind !== 'ins';
@@ -90,8 +78,7 @@ export function buildRendered(source) {
    *
    * `toSource` answers with the first *drawn* character, which for struck text
    * is the one inside the opening delimiter: an offset the caret may never
-   * hold. The reachable positions are before `{--` and after `--}` — after the
-   * reason chip too, since that belongs to the annotation.
+   * hold. The reachable positions are before `{--` and after `--}`.
    *
    * Null when the piece does not span its whole annotation, which happens when
    * a deletion crosses a line break or wraps inline markdown. Those inner
@@ -119,8 +106,8 @@ export function buildRendered(source) {
    * replacement, and it appears in the one below.
    *
    * Same device as `doc-tail` and the blank-line spacers: an empty text node
-   * carrying a mapping. It is *not* `data-virtual`, because unlike a bullet or
-   * a comment chip there is a real source offset behind it.
+   * carrying a mapping. It is *not* `data-virtual`, because unlike a bullet
+   * or an island label there is a real source offset behind it.
    */
   function landingSpot(parent, start) {
     if (start === null) return;
@@ -192,10 +179,10 @@ export function buildRendered(source) {
     // it was meant to be in.
     if (to <= from) landingSpot(parent, toSource(visible, from));
     renderNodes(parent, parseInline(visible.text, from, to));
-    // Comments anchored at the very end of the block still belong to it.
-    for (const c of visible.comments) {
-      if (c.orphan && c.at >= from && c.at <= to) parent.append(chip(c.text, c.annStart ?? undefined));
-    }
+    // A comment with no annotation before it — one an agent wrote into the
+    // file without anchoring it — draws nothing here. There is no change to
+    // shade and no text of its own, and a glyph in the prose is what this view
+    // stopped having. The sidebar lists it, reads it and edits it.
   }
 
   /**

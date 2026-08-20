@@ -281,14 +281,11 @@ test('an unexplained edit is marked on the change itself', () => {
   assert.equal(struck.dataset.reason, undefined);
 });
 
-test('a comment with no edit under it keeps a mark, and the mark is virtual', () => {
+test('a comment with no edit under it draws nothing at all', () => {
   const r = render('A line{>>standalone note<<} of prose.\n');
-  const chip = r.host.querySelector('.r-com');
-  assert.ok(chip, 'there is nothing to shade, so it is drawn');
-  assert.equal(chip.dataset.virtual, '1');
-  assert.equal(isVirtual(chip), true);
-  assert.equal(chip.textContent, '', 'a dot, not the note spelled out');
-  assert.equal(screenText(r.host).includes('standalone'), false);
+  assert.equal(screenText(r.host), 'A line of prose.', 'the prose is all there is');
+  assert.equal(r.host.querySelector('[data-reason]'), null, 'nothing stands in for it');
+  assert.equal(r.host.querySelector('[data-virtual]'), null);
 });
 
 test('a rule and an island label are chrome', () => {

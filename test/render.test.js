@@ -301,6 +301,21 @@ test('a comment with no edit under it draws nothing at all', () => {
   assert.equal(r.host.querySelector('[data-virtual]'), null);
 });
 
+test('the halves of a rewrite answer the pointer as one', () => {
+  const r = render('A {~~stopgap~>rewrite~~}{>>it was never temporary<<} of it.\n');
+  const sub = r.host.querySelector('.r-sub');
+  assert.ok(sub, 'the two halves share a wrapper');
+  assert.equal(sub.dataset.reason, 'it was never temporary', 'which is what carries the reason');
+  assert.equal(sub.querySelector('.r-del').dataset.reason, undefined, 'not each half in turn');
+  assert.equal(sub.querySelector('.r-ins').dataset.reason, undefined);
+  assert.equal(screenText(r.host), 'A stopgaprewrite of it.', 'both halves are still on screen');
+
+  const owed = render('A {~~stopgap~>rewrite~~} of it.\n').host.querySelector('.r-sub');
+  assert.equal(owed.classList.contains('unexplained'), true, 'and one outline round the pair');
+  assert.equal(owed.querySelector('.r-del').classList.contains('unexplained'), false);
+  assert.equal(owed.querySelectorAll('.add-reason').length, 1, 'one way to explain it, not two');
+});
+
 test('a structural change hangs its reason on the bar in the margin', () => {
   const owed = render('{++- ++}A bullet nobody explained\n');
   const bar = owed.host.querySelector('li .marker-bar');

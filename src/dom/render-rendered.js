@@ -147,27 +147,49 @@ export function buildRendered(source) {
   function emit(parent, from, to) {
     if (to <= from) return;
     const pieces = sliceSpans(visible, from, to);
+    /**
+     * The halves of a substitution, under one roof.
+     *
+     * A rewrite reaches the screen as two pieces, struck then new, and left as
+     * siblings each answers the pointer on its own: hovering one lit its half
+     * of a change the document now holds as a single annotation, and the
+     * reason it shares appeared twice, over one word and then the other. The
+     * pair goes in a wrapper, and the wrapper is what carries the reason, the
+     * outline and the pill.
+     */
+    let group = null;
+
     pieces.forEach((piece, i) => {
       const edges = unedittable(piece) ? edgesOf(piece) : { before: null, after: null };
+      const next = pieces[i + 1];
 
       // Nothing precedes an opening run of struck text, so give it an edge.
       if (i === 0) landingSpot(parent, edges.before);
 
+      if (!group && piece.annStart !== null && next && next.annStart === piece.annStart) {
+        group = el('span', 'r-sub');
+        group.dataset.start = String(piece.annStart);
+        markReason(group, piece.annStart, true);
+        parent.append(group);
+      }
+      const home = group || parent;
+
       const node = document.createTextNode(visible.text.slice(piece.start, piece.end));
-      let host = parent;
+      let host = home;
       if (piece.kind) {
         const wrap = el('span', `r-${piece.kind}`);
         if (piece.kind !== 'ins') atomic(wrap);   // struck and highlighted text is not typed into
         wrap.dataset.start = String(piece.annStart);
-        markReason(wrap, piece.annStart, true);
-        parent.append(wrap);
+        if (!group) markReason(wrap, piece.annStart, true);
+        home.append(wrap);
         host = wrap;
       }
       host.append(node);
       mappings.push({ node, start: toSource(visible, piece.start) });
 
+      if (group && (!next || next.annStart !== piece.annStart)) group = null;
+
       // And an edge on the far side, unless ordinary text already provides one.
-      const next = pieces[i + 1];
       if (!(next && !unedittable(next))) landingSpot(parent, edges.after);
     });
   }

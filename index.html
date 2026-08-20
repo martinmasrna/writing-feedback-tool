@@ -37,26 +37,21 @@
   </symbol>
 </svg>
 
-<header id="bar">
-  <div class="brand">red<em>line</em></div>
-  <div class="sep"></div>
-  <div id="fileMeta"><span class="dot" id="dirtyDot"></span><span id="fileName">no file</span></div>
-  <div class="spacer"></div>
-  <div class="seg" id="views">
-    <button class="icon on" data-view="rendered" data-label="Rendered" aria-label="Rendered"><svg><use href="#i-rendered"/></svg></button>
-    <button class="icon" data-view="source" data-label="Source" aria-label="Source"><svg><use href="#i-source"/></svg></button>
-  </div>
-  <div class="sep"></div>
-  <button class="icon ghost" id="btnUndo" data-label="Undo ⌘Z" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
-  <button class="icon ghost" id="btnRedo" data-label="Redo ⇧⌘Z" aria-label="Redo"><svg><use href="#i-redo"/></svg></button>
-  <div class="sep"></div>
-  <button class="icon" id="btnOpen" data-label="Open" aria-label="Open"><svg><use href="#i-open"/></svg></button>
-  <button class="icon" id="btnCopy" data-label="Copy markdown" aria-label="Copy"><svg><use href="#i-copy"/></svg></button>
-  <button class="icon primary" id="btnSave" data-label="Save ⌘S" aria-label="Save"><svg><use href="#i-save"/></svg></button>
-</header>
-
 <main>
   <section id="docPane">
+    <div id="tools">
+      <div class="seg" id="views">
+        <button class="icon on" data-view="rendered" data-label="Rendered" aria-label="Rendered"><svg><use href="#i-rendered"/></svg></button>
+        <button class="icon" data-view="source" data-label="Source" aria-label="Source"><svg><use href="#i-source"/></svg></button>
+      </div>
+      <div class="sep"></div>
+      <button class="icon ghost" id="btnUndo" data-label="Undo ⌘Z" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+      <button class="icon ghost" id="btnRedo" data-label="Redo ⇧⌘Z" aria-label="Redo"><svg><use href="#i-redo"/></svg></button>
+      <div class="spacer"></div>
+      <button class="icon" id="btnOpen" data-label="Open" aria-label="Open"><svg><use href="#i-open"/></svg></button>
+      <button class="icon" id="btnCopy" data-label="Copy markdown" aria-label="Copy"><svg><use href="#i-copy"/></svg></button>
+      <button class="icon primary" id="btnSave" data-label="Save ⌘S" aria-label="Save"><svg><use href="#i-save"/></svg></button>
+    </div>
     <div id="doc" contenteditable="true" spellcheck="false"></div>
     <div id="empty">
       <div class="card">

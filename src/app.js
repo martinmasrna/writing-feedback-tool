@@ -14,7 +14,7 @@ import * as structure from './structure.js';
 import { annotate } from './editor.js';
 import { createOffsetIndex } from './dom/offsets.js';
 import { createToast } from './ui/toast.js';
-import { createHeader } from './ui/header.js';
+import { createControls } from './ui/controls.js';
 import { createSidebar } from './ui/sidebar.js';
 import { createToolbar } from './ui/toolbar.js';
 import { createDialog } from './ui/dialog.js';
@@ -37,8 +37,7 @@ export function createApp() {
 
   /* --- rendering --------------------------------------------------------- */
 
-  const renderHeader = createHeader({
-    dirtyDot: $('#dirtyDot'), fileName: $('#fileName'),
+  const renderControls = createControls({
     undo: $('#btnUndo'), redo: $('#btnRedo'), save: $('#btnSave'), copy: $('#btnCopy'),
     views: $('#views'),
   }, {
@@ -102,7 +101,7 @@ export function createApp() {
     }
 
     renderSidebar(state);
-    renderHeader(state, store.dirty());
+    renderControls(state, store.dirty());
     $('#empty').style.display = state.loaded ? 'none' : 'flex';
 
     if (state.caret && !dialog.open) {

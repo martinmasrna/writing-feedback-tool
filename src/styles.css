@@ -53,7 +53,7 @@ button.icon svg{width:15px;height:15px;fill:none;stroke:currentColor;
 }
 [data-label]:hover::after,[data-label]:focus-visible::after{opacity:1}
 /* The last button has no room to its right to centre a label under. */
-#bar>button:last-child::after{left:auto;right:0;transform:none}
+#tools>button:last-child::after{left:auto;right:0;transform:none}
 [data-label]:disabled::after{content:none}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 textarea,input{font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);
@@ -61,30 +61,36 @@ textarea,input{font-family:inherit;font-size:13px;color:var(--ink);background:va
 textarea:focus,input:focus{outline:2px solid var(--ink);outline-offset:-1px;border-color:var(--ink)}
 
 /* ---------- header ---------- */
-#bar{
-  height:46px;display:flex;align-items:center;gap:10px;padding:0 14px;
-  border-bottom:1px solid var(--line);background:var(--surface);
-  position:relative;z-index:30;
-}
-.brand{font-weight:600;letter-spacing:-.01em;font-size:13.5px}
-.brand em{font-style:normal;color:var(--del)}
-#fileMeta{color:var(--ink-2);font-size:12px;display:flex;align-items:center;gap:6px;
-  max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.dot{width:6px;height:6px;border-radius:50%;background:var(--del);flex:none;display:none}
-.dot.on{display:block}
-.spacer{flex:1}
 .seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .seg button{border:0;border-radius:0;padding:5px 9px;background:transparent;color:var(--ink-2)}
 .seg button+button{border-left:1px solid var(--line)}
 .seg button.on{background:var(--ink);color:#fff}
 .seg button.on:hover{background:var(--ink)}
 .sep{width:1px;height:20px;background:var(--line)}
+.spacer{flex:1}
 
 /* ---------- layout ---------- */
-main{display:flex;height:calc(100% - 46px)}
+main{display:flex;height:100%}
 #docPane{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+/* The controls ride at the top of the document's own column and stay there
+   while it scrolls. Nothing else is fixed on screen. */
+#tools{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;
+  max-width:calc(82ch + 64px);margin:0 auto;padding:14px 32px 12px;
+  background:var(--paper);
+}
+/* Text passing under the row fades out rather than being cut mid-letter. */
+#tools::after{
+  content:'';position:absolute;left:0;right:0;top:100%;height:16px;pointer-events:none;
+  background:linear-gradient(var(--paper),rgba(250,249,247,0));
+}
+#btnSave.dirty::before{
+  content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;
+  border-radius:50%;background:var(--paper);
+}
+
 #doc{
-  max-width:calc(82ch + 64px);margin:0 auto;padding:40px 32px 55vh;
+  max-width:calc(82ch + 64px);margin:0 auto;padding:8px 32px 55vh;
   font-family:var(--mono);font-size:13.5px;line-height:1.75;
   white-space:pre-wrap;overflow-wrap:break-word;tab-size:2;
   -webkit-user-select:text;user-select:text;

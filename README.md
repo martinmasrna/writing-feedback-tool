@@ -107,7 +107,7 @@ src/
   dom/render.js         source view construction
   dom/render-rendered.js  rendered view construction
   dom/offsets.js        DOM position ↔ source offset mapping
-  ui/                   header, sidebar, toolbar, dialog, toast
+  ui/                   controls, sidebar, toolbar, dialog, toast
   app.js                wiring
 tools/build.js          bundles and inlines everything into one HTML file
 ```

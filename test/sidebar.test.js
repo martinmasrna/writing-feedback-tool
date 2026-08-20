@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { installDom } from './dom.js';
 import { createSidebar } from '../src/ui/sidebar.js';
-import { createHeader } from '../src/ui/header.js';
+import { createControls } from '../src/ui/controls.js';
 import { editor } from './harness.js';
 import { parse } from '../src/criticmarkup.js';
 
@@ -31,7 +31,7 @@ function sidebar() {
   };
 }
 
-function header() {
+function controls() {
   const views = make();
   for (const v of ['rendered', 'source']) {
     const b = make('button');
@@ -39,10 +39,10 @@ function header() {
     views.append(b);
   }
   const refs = {
-    dirtyDot: make(), fileName: make(), undo: make('button'), redo: make('button'),
+    undo: make('button'), redo: make('button'),
     save: make('button'), copy: make('button'), views,
   };
-  const render = createHeader(refs, { onView() {} });
+  const render = createControls(refs, { onView() {} });
   return {
     refs,
     show(source, extra = {}) {
@@ -133,19 +133,19 @@ test('an empty document says how to start', () => {
   assert.equal(s.count.textContent, '');
 });
 
-/* --- the header ------------------------------------------------------------- */
+/* --- the controls over the document ----------------------------------------- */
 
 // Rendering against exactly these refs is the check that nothing else is left
-// in the bar: a header still reaching for a counter would throw here.
-test('the header says which file, whether it is saved, and which view', () => {
-  const h = header();
-  const refs = h.show('A {--cut--} here.\n');
-  assert.equal(refs.fileName.textContent, 'doc.md');
-  assert.equal(refs.dirtyDot.classList.contains('on'), false);
+// in the row: a control still reaching for a file name would throw here.
+test('the controls follow the document: which view, and whether it is saved', () => {
+  const c = controls();
+  const refs = c.show('A {--cut--} here.\n');
+  assert.equal(refs.save.classList.contains('dirty'), false);
+  assert.equal(refs.save.disabled, false, 'a loaded document can be saved');
   assert.equal([...refs.views.children].find((b) => b.classList.contains('on')).dataset.view, 'rendered');
 
-  h.show('A {--cut--} here.\n', { dirty: true, view: 'source' });
-  assert.equal(refs.dirtyDot.classList.contains('on'), true, 'unsaved work is marked');
+  c.show('A {--cut--} here.\n', { dirty: true, view: 'source' });
+  assert.equal(refs.save.classList.contains('dirty'), true, 'unsaved work is marked on Save');
   assert.equal([...refs.views.children].find((b) => b.classList.contains('on')).dataset.view, 'source');
 });
 

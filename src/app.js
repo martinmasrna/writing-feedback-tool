@@ -39,7 +39,7 @@ export function createApp() {
 
   const renderControls = createControls({
     undo: $('#btnUndo'), redo: $('#btnRedo'), save: $('#btnSave'), copy: $('#btnCopy'),
-    views: $('#views'), side: $('#btnSide'),
+    views: $('#views'), side: $('#btnSide'), sideClose: $('#btnSideClose'),
   }, {
     onView: (view) => { toolbar.hide(); store.setView(view); },
     onToggleSide: () => store.toggleSide(),

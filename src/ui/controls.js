@@ -14,6 +14,7 @@ export function createControls(refs, { onView, onToggleSide }) {
     b.addEventListener('click', () => onView(b.dataset.view));
   });
   refs.side.addEventListener('click', () => onToggleSide());
+  refs.sideClose.addEventListener('click', () => onToggleSide());
 
   return function render(state, dirty) {
     refs.undo.disabled = !state.undo.length;
@@ -28,7 +29,6 @@ export function createControls(refs, { onView, onToggleSide }) {
     // because the list itself says it.
     const owed = state.anns.filter((a) => a.type !== 'com' && !hasReason(a)).length;
     refs.side.classList.toggle('on', state.sideOpen);
-    refs.side.dataset.label = state.sideOpen ? 'Hide annotations' : 'Show annotations';
     if (state.sideOpen || !owed) refs.side.removeAttribute('data-count');
     else refs.side.dataset.count = String(owed);
 

@@ -40,7 +40,8 @@ function controls() {
   }
   const refs = {
     undo: make('button'), redo: make('button'),
-    save: make('button'), copy: make('button'), views, side: make('button'),
+    save: make('button'), copy: make('button'), views,
+    side: make('button'), sideClose: make('button'),
   };
   const render = createControls(refs, { onView() {}, onToggleSide() {} });
   return {

@@ -7,7 +7,6 @@
  * typing and backspacing produce tracked CriticMarkup.
  */
 
-import * as edits from './edits.js';
 import { applyAction, moveCaret } from './editor.js';
 
 /**
@@ -86,7 +85,10 @@ export function attachInput(doc, { read, apply, getText, getView, canEdit, undo,
   });
 
   // IME: let the browser compose freely, then discard its DOM edit and apply the
-  // composed string through the same path as everything else.
+  // composed string through the same path as everything else — `applyAction`,
+  // not `edits.insert`. Composition can start over a selection, and going
+  // straight to the edit engine skipped the guard that keeps a selection
+  // spanning a code fence from swallowing it.
   let composingAt = null;
   doc.addEventListener('compositionstart', () => { composingAt = read(); });
   doc.addEventListener('compositionend', (e) => {
@@ -94,7 +96,7 @@ export function attachInput(doc, { read, apply, getText, getView, canEdit, undo,
     composingAt = null;
     if (!at) return;
     onComposedRender();
-    if (e.data) apply(edits.insert(getText(), at, e.data));
+    if (e.data) apply(applyAction({ text: getText(), caret: at, view: getView() }, { type: 'insertText', data: e.data }));
   });
 }
 

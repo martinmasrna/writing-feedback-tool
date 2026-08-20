@@ -187,3 +187,29 @@ test('a modified arrow is left to the browser', () => {
     assert.equal(e.defaultPrevented, false);
   }
 });
+
+/* --- composition ----------------------------------------------------------- */
+
+test('a composed string arrives as an ordinary insertion', () => {
+  const w = wired({ selection: { start: 6, end: 6 } });
+  w.node.dispatchEvent(new window.CompositionEvent('compositionstart', { bubbles: true }));
+  w.node.dispatchEvent(new window.CompositionEvent('compositionend', { data: 'こんにちは', bubbles: true }));
+  assert.equal(w.seen.actions.length, 1);
+  assert.equal(w.seen.actions[0].text, 'Alpha {++こんにちは++}beta gamma.\n');
+});
+
+test('composing over a code block is refused like everything else', () => {
+  // Composition can start over a selection, and it used to go straight to the
+  // edit engine, skipping the guard that keeps a fence from being swallowed.
+  const text = 'Before\n\n```\ncode\n```\n\nAfter\n';
+  const w = wired({ text, selection: { start: 0, end: text.indexOf('After') + 5 } });
+  w.node.dispatchEvent(new window.CompositionEvent('compositionstart', { bubbles: true }));
+  w.node.dispatchEvent(new window.CompositionEvent('compositionend', { data: 'x', bubbles: true }));
+  assert.deepEqual(w.seen.actions, [{ blocked: { kind: 'unsupported', reason: 'code' } }]);
+});
+
+test('composition itself is left alone until it ends', () => {
+  const w = wired();
+  assert.equal(w.fire('insertCompositionText').defaultPrevented, false);
+  assert.equal(w.seen.actions.length, 0, 'nothing is applied mid-composition');
+});

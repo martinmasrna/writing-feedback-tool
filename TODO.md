@@ -8,23 +8,25 @@ what gets done.
 
 One blank line between two blocks is the separator and renders nothing, which is
 right for spacing and wrong for the caret: the offset has no DOM node, so the
-caret is drawn at the end of the line above instead. Press Enter and the cursor
-appears not to move, though the next character does land correctly — `app.js`
-keeps the offset it holds rather than the one the screen gives back.
+caret is drawn at the end of the line above instead. The next character still
+lands correctly — `app.js` keeps the offset it holds rather than the one the
+screen gives back — so this is where the cursor *appears*, not where the text
+goes.
 
-It is the last of the caret-drawing gaps, and about 13% of states reached by
-random editing hit it. Two reproductions:
+Every everyday keystroke is now right, including Enter at the end of a
+paragraph, at the end of the document, and at the end of a list item. What is
+left is about 1.6% of states reached by random editing, all of them a caret
+sitting on a separator blank line.
 
-- `editor('# T\n\nBody.\n').caretBefore('Body').press('Enter', 2)` — the caret
-  belongs at the start of the new blank line and is drawn one position earlier.
-- Any insertion ending in a newline leaves the caret in the same place.
-
-**The decision to make.** A blank line needs somewhere to stand without gaining
+**The decision to make.** The line needs somewhere to stand without gaining
 visible height, and whether Chrome will hold a caret in a zero-height block is
-the whole question. `p.blank-line` (min-height 1.65em) demonstrably does hold
-one, so the likely answer is to draw *every* blank line and give only the extras
-their height — but that must be checked in a real browser, not jsdom, which
-accepts anything.
+the whole question — if it will not, the caret is invisible, which is worse than
+being a line too high. `p.blank-line` (min-height 1.65em) demonstrably does hold
+one, and an empty `<li>` with a landing spot in it does too, so the shape of the
+answer is there. It has to be checked in a real browser; jsdom accepts anything.
+
+Drawing the *first* blank of a run instead of the last was tried and is not it:
+273 bad states against 287, and no principle to justify either choice.
 
 ## 2. In-app assertions in development
 
@@ -48,8 +50,8 @@ worth it once 1 and 2 stop finding things.
 - **Untested in a browser at all:** IME composition, Shift+Arrow selection (left
   to the browser deliberately), the reason prompt in the rendered view since the
   refactors, and save-in-place through the File System Access API, which needs a
-  real click and so has never run end to end. `src/files.js` and `src/ui/*` have
-  no tests for the same reason.
+  real click. `files.js` has tests for the decision it makes but not for the API
+  itself; `ui/dialog.js` and `ui/toolbar.js` have none.
 
 - **jsdom does no layout.** `getBoundingClientRect()` returns zeroes, so toolbar
   and dialog positioning stay untestable without a real browser.

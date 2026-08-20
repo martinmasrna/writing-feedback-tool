@@ -68,7 +68,7 @@ export function createStore() {
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
     load(text, name, handle) {
-      state.text = text.replace(/\r\n/g, '\n');
+      state.text = text.replace(/\r\n?/g, '\n');   // including the lone CR of very old files
       state.saved = state.text;
       state.name = name || 'untitled.md';
       state.handle = handle || null;

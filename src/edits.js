@@ -23,6 +23,16 @@ import {
 const at = (p) => ({ start: p, end: p });
 const splice = (text, a, b, ins) => text.slice(0, a) + ins + text.slice(b);
 
+/**
+ * Line endings the document never uses.
+ *
+ * A document is normalised to `\n` when it is loaded, but text arriving later
+ * is not: paste and drop carry whatever the source had, and a `\r` left in the
+ * file ends up on the tail of every line, inside the content of a block rather
+ * than separating one — invisible on screen and wrong in the file.
+ */
+const oneKindOfNewline = (s) => (s || '').replace(/\r\n?/g, '\n');
+
 /* -------------------------------------------------------------------------- */
 /* Striking text out, merging with an adjacent deletion so that holding        */
 /* backspace grows one annotation instead of making a chain of them.           */
@@ -60,9 +70,12 @@ function strikeAfter(text, anns, a, b) {
  * keystrokes yields one `{++…++}` rather than one per character.
  */
 export function insert(text, sel, str) {
-  const clean = sanitize(str || '');
+  const arrived = oneKindOfNewline(str);
+  const clean = sanitize(arrived);
   if (!clean) return null;
-  const stripped = clean !== str;
+  // Only delimiter removal is worth telling the user about; line endings are
+  // housekeeping.
+  const stripped = clean !== arrived;
   const anns = parse(text);
 
   if (sel.end > sel.start) {
@@ -290,7 +303,7 @@ export function annotate(text, sel, kind, replacement, reason) {
   const blocked = overlapping(anns, sel.start, sel.end);
   if (blocked) return { blocked };
   const old = text.slice(sel.start, sel.end);
-  const md = markup(kind, old, sanitize(replacement || ''), sanitize(reason || ''));
+  const md = markup(kind, old, sanitize(oneKindOfNewline(replacement)), sanitize(oneKindOfNewline(reason)));
   return { text: splice(text, sel.start, sel.end, md), caret: at(sel.start + md.length), coalesce: null };
 }
 
@@ -302,7 +315,7 @@ export function annotate(text, sel, kind, replacement, reason) {
 export function setReason(text, annStart, reason, keep) {
   const a = parse(text).find((x) => x.start === annStart);
   if (!a) return null;
-  const md = reasonMd(sanitize(reason || ''));
+  const md = reasonMd(sanitize(oneKindOfNewline(reason)));
   const from = a.ctok ? a.ctok.start : a.tok.end;
   const to = a.ctok ? a.ctok.end : a.tok.end;
   if (text.slice(from, to) === md) return null;

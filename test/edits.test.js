@@ -285,3 +285,26 @@ test('annotate() covers the toolbar dialogs', () => {
   assert.equal(annotate(text, sel, 'del', '', 'why').text, 'It {--completely--}{>>why<<} works.');
   assert.equal(annotate(text, sel, 'hl', '', 'note').text, 'It {==completely==}{>>note<<} works.');
 });
+
+/* --- text arriving from outside -------------------------------------------- */
+
+test('pasted line endings are made to match the document', () => {
+  // A document is normalised to \n when it is loaded; text pasted afterwards
+  // carries whatever the source had. A stray \r ends up on the tail of a line,
+  // inside a block's content rather than separating one — invisible on screen
+  // and wrong in the file.
+  const r = insert('Alpha  gamma.\n', { start: 6, end: 6 }, 'one\r\ntwo\rthree');
+  assert.equal(r.text, 'Alpha {++one\ntwo\nthree++} gamma.\n');
+  assert.equal(r.stripped, false, 'and that is housekeeping, not something to warn about');
+});
+
+test('a paste carrying delimiters is stripped and says so', () => {
+  const r = insert('Alpha  gamma.\n', { start: 6, end: 6 }, 'a --} b');
+  assert.equal(r.text, 'Alpha {++a  b++} gamma.\n');
+  assert.equal(r.stripped, true);
+});
+
+test('the dialog fields are cleaned the same way', () => {
+  const r = annotate('Alpha beta gamma.\n', { start: 6, end: 10 }, 'sub', 'x\r\ny', 'a\r\nb');
+  assert.equal(r.text, 'Alpha {~~beta~>x\ny~~}{>>a\nb<<} gamma.\n');
+});

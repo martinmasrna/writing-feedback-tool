@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalize } from '../src/edits.js';
+import { toggleBullet, setHeadingLevel } from '../src/structure.js';
 import { transform } from '../src/criticmarkup.js';
 
 const run = (text, caret = null) => normalize(text, caret);
@@ -32,8 +33,8 @@ test('a shared suffix cancels when one side contains the other', () => {
 });
 
 test('incidental overlap is left readable rather than shaved', () => {
-  const text = 'a {--alpha--}{++beta++} b';
-  assert.equal(run(text).text, text, 'alpha -> beta beats alph -> bet plus a stray a');
+  const r = run('a {--alpha--}{++beta++} b');
+  assert.equal(r.text, 'a {~~alpha~>beta~~} b', 'alpha -> beta beats alph -> bet plus a stray a');
 });
 
 test('a substitution that changes nothing disappears', () => {
@@ -47,9 +48,55 @@ test('a substitution keeps only the part that actually differs', () => {
   assert.ok(r.text.includes('stopgap{++s++}'), 'shared text is no longer marked');
 });
 
-test('unrelated edits are left alone', () => {
-  const text = 'a {--alpha--}{++beta++} b';
-  assert.equal(run(text).text, text);
+test('touching edits are written as the one edit they are', () => {
+  const r = run('a {--alpha--}{++beta++} b');
+  assert.equal(r.text, 'a {~~alpha~>beta~~} b', 'a deletion against an insertion is a rewrite');
+  assert.equal(transform(r.text, 'rejected'), 'a alpha b');
+  assert.equal(transform(r.text, 'accepted'), 'a beta b');
+
+  assert.equal(run('a {--one--}{--two--} b').text, 'a {--onetwo--} b', 'and two deletions are one');
+  assert.equal(run('a {++one++}{++two++} b').text, 'a {++onetwo++} b');
+  assert.equal(run('a {~~x~>y~~}{++z++} b').text, 'a {~~x~>yz~~} b');
+});
+
+test('edits with unedited text between them stay apart', () => {
+  const text = 'polls e{~~very~>ach~~} {~~five~>5~~} minutes';
+  assert.equal(run(text).text, text, 'the space was never edited and is not claimed');
+});
+
+test('a marker mid-change is never folded into the prose beside it', () => {
+  // structure.js finds the marker a block wears by looking for an annotation
+  // whose body is one. Bury it in a larger edit and ⌘⇧8 writes a second.
+  for (const text of [
+    '{++- ++}{~~Para~>the ~~} one.\n',
+    '{++###### the ++}{~~Plain~>a~~} text.\n',
+    '{~~## ~># ~~}{++x++}Title\n',
+    '{++\n- ++}{++x++}Item\n',
+  ]) assert.equal(run(text).text, text, text);
+});
+
+test('every marker structure.js can rewrite is one normalisation leaves alone', () => {
+  // Two patterns, in two modules, that have to mean the same thing. Where they
+  // disagree, normalisation buries a marker the structural commands then
+  // cannot find, and the next one stacks a second marker on the line.
+  for (const marker of ['- ', '* ', '+ ', '1. ', '1) ', '# ', '###### ']) {
+    const text = `{++${marker}++}{++x++}Item\n`;
+    assert.equal(run(text).text, text, `normalisation leaves ${JSON.stringify(marker)} alone`);
+
+    const command = marker.startsWith('#')
+      ? (t) => setHeadingLevel(t, { start: t.indexOf('Item'), end: t.indexOf('Item') }, 2)
+      : (t) => toggleBullet(t, { start: t.indexOf('Item'), end: t.indexOf('Item') }, {});
+    const after = command(`{++${marker}++}Item\n`);
+    assert.ok(after && after.text !== undefined, `structure.js acts on ${JSON.stringify(marker)}`);
+    assert.equal(/^[^\n]*(?:[-*+]|\d[.)]|#{1,6})[ \t]+(?:[-*+]|\d[.)]|#{1,6})[ \t]/.test(transform(after.text, 'accepted')),
+      false, `and does not stack a second marker on ${JSON.stringify(marker)}`);
+  }
+});
+
+test('bodies that would meet as a delimiter are left as they are', () => {
+  const r = run('a {--x~--}{++>y++} b');
+  assert.equal(transform(r.text, 'rejected'), 'a x~ b', 'whatever it does, the document survives');
+  assert.equal(transform(r.text, 'accepted'), 'a >y b');
 });
 
 test('an explained edit is never dissolved', () => {

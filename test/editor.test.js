@@ -62,6 +62,23 @@ test('typing over a selection reads as one replacement', () => {
   assert.equal(ed.source, 'a {~~completely~>largely~~} b\n');
 });
 
+test('deleting a word and typing its replacement reads as one replacement too', () => {
+  // The same document selecting and typing over it produces — the keystrokes
+  // just arrived in two bursts, which nobody reviewing the file cares about.
+  const ed = editor('polls every five minutes\n').select('every').press('Backspace').type('each');
+  assert.equal(ed.source, 'polls e{~~very~>ach~~} five minutes\n', 'shared text is left unmarked');
+  assert.equal(ed.rejected, ed.original);
+  assert.equal(ed.accepted, 'polls each five minutes\n');
+});
+
+test('two rewrites with untouched text between them stay two', () => {
+  const ed = editor('polls every five minutes\n')
+    .select('every').press('Backspace').type('each')
+    .select('five').press('Backspace').type('5');
+  assert.equal(ed.source, 'polls e{~~very~>ach~~} {~~five~>5~~} minutes\n', 'the space was never edited');
+  assert.equal(ed.rejected, ed.original);
+});
+
 test('pasting is one edit, not one per character', () => {
   const ed = editor('start end\n').caretAfter('start').paste(' middle');
   assert.equal(ed.source, 'start{++ middle++} end\n');

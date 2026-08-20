@@ -449,15 +449,10 @@ export function normalize(text, caret) {
         break;
       }
 
-      const [prefix, addedCore, removedCore, suffix] = shave(after, before);
-      if (!prefix && !suffix) continue;
-      if (!cancels(addedCore, removedCore)) continue;
-
-      const rebuilt = prefix
-        + (removedCore ? `{--${removedCore}--}` : '')
-        + (addedCore ? `{++${addedCore}++}` : '')
-        + suffix;
-      if (rebuilt === out.slice(from, to)) continue;
+      // Trim what only appeared to change; failing that, say the run once.
+      const rebuilt = shaved(before, after)
+        ?? (run.length > 1 && !run.some(structural) ? one(before, after) : null);
+      if (rebuilt === null || rebuilt === out.slice(from, to)) continue;
       cursor = move(from, to, out.slice(from, to), rebuilt);
       out = out.slice(0, from) + rebuilt + out.slice(to);
       acted = true;
@@ -474,6 +469,70 @@ export function normalize(text, caret) {
 const rejected = (a) => (a.type === 'ins' ? '' : a.a);
 /** And if it is accepted. */
 const accepted = (a) => (a.type === 'del' ? '' : a.type === 'sub' ? a.b : a.a);
+
+/**
+ * A run trimmed of the text it only appeared to change, or null when there is
+ * nothing to trim. Retyping "alpha" as "alpha beta" is an insertion of
+ * " beta", not a rewrite of the whole phrase.
+ */
+function shaved(before, after) {
+  const [prefix, addedCore, removedCore, suffix] = shave(after, before);
+  if (!prefix && !suffix) return null;
+  if (!cancels(addedCore, removedCore)) return null;
+  return prefix
+    + (removedCore ? `{--${removedCore}--}` : '')
+    + (addedCore ? `{++${addedCore}++}` : '')
+    + suffix;
+}
+
+/**
+ * A block marker mid-change, which is not prose and must stay its own edit.
+ *
+ * `structure.js` finds the marker a bullet or a heading is currently wearing by
+ * looking for an annotation whose whole body is one. Fold that annotation into
+ * the edit beside it and the marker stops being findable: the next ⌘⇧8 sees no
+ * bullet to replace and writes a second one, so a line ends up `- 1. Plain`.
+ * The structural fuzz found this 151 sessions out of 600.
+ *
+ * Anything *opening* with a marker counts, not only a body that is nothing but
+ * one: typing straight after adding a bullet extends that insertion, so the
+ * marker is already sharing an annotation with prose by the time this runs.
+ * Merging further buries it — and where `structure.js` had been refusing to
+ * touch a marker it could not find, it instead found no marker at all and
+ * wrote a second one.
+ *
+ * This pattern has to agree with MARKER in `structure.js`; a test holds them
+ * to each other.
+ */
+const MARKER_LEAD = /^(\s*)([-*+]|\d{1,9}[.)]|#{1,6})([ \t]+)/;
+const structural = (a) => MARKER_LEAD.test(a.a) || (a.type === 'sub' && MARKER_LEAD.test(a.b));
+
+/**
+ * A run of touching edits, written as the one edit it is.
+ *
+ * Deleting a word and typing its replacement leaves a deletion beside an
+ * insertion — the same document that selecting the word and typing over it
+ * writes as a single substitution, split only because the keystrokes arrived
+ * in separate bursts. On screen that was a row of adjacent marks with no way
+ * to see it was one thought, and downstream it was several edits where the
+ * writer made one.
+ *
+ * The run's own text is untouched by this: what it rejects to and what it
+ * accepts to are both concatenated in order, so the document underneath and
+ * the document above are both exactly what they were.
+ *
+ * Null when the joined bodies would not read back as what was written. Two
+ * bodies that are each fine can meet as a delimiter — a deletion ending in `~`
+ * against an insertion opening with `>` — and an annotation that parses as
+ * something else is worse than two that parse as themselves.
+ */
+function one(before, after) {
+  if (!before && !after) return '';
+  const md = !before ? `{++${after}++}`
+    : !after ? `{--${before}--}`
+    : `{~~${before}~>${after}~~}`;
+  return wellFormed(md) ? md : null;
+}
 
 /**
  * Maximal runs of touching annotations that may be reconsidered as a whole.

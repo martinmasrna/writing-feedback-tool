@@ -142,8 +142,21 @@ export function editor(initial, options = {}) {
     act(action) {
       const result = applyAction({ text, caret, view }, action);
       log.push(action.type + (action.data ? ` ${JSON.stringify(action.data)}` : ''));
+      return api.apply(result);
+    },
+
+    /**
+     * Absorb a result from any of the pure modules and settle it, the way
+     * `store.apply()` does.
+     *
+     * The structural commands in `structure.js` — bullets, heading levels,
+     * emphasis — reach the document through this same path in the app, so they
+     * have to reach it through this same path in a test. Without it they could
+     * only be checked one call at a time, never in a session alongside typing.
+     */
+    apply(result) {
       if (!result) { last = { kind: 'none' }; return api; }
-      if (result.blocked) { last = { kind: 'blocked' }; log.push('  (refused)'); return api; }
+      if (result.blocked || result.blockedReason) { last = { kind: 'blocked' }; log.push('  (refused)'); return api; }
       if (result.text === undefined) { last = { kind: 'moved' }; caret = result.caret; return api; }
       last = { kind: 'changed', stripped: !!result.stripped };
       const settled = normalize(result.text, result.caret);

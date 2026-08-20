@@ -114,6 +114,21 @@ export function createOffsetIndex(root) {
     },
 
     /**
+     * What this offset would read back as, once drawn.
+     *
+     * The screen cannot represent every source offset: the end of an insertion
+     * body and the position just past its closing delimiter are the same place
+     * on it, and neither a `**` nor the line break between two blocks is drawn
+     * at all. So writing the caret out and reading it back is lossy, and two
+     * offsets with the same answer here are the same place to a reader.
+     */
+    readBack(offset) {
+      const [node, at] = this.sourceToPoint(offset);
+      const back = this.pointToSource(node, at);
+      return back === null ? offset : back;
+    },
+
+    /**
      * The next source offset the caret can actually occupy on screen, or null
      * when every character is addressable (the source view) and plain stepping
      * will do.

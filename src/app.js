@@ -149,12 +149,27 @@ export function createApp() {
 
   /* --- selection --------------------------------------------------------- */
 
+  /**
+   * Is this reading just the caret we drew ourselves, come back to us?
+   *
+   * The rendered view cannot represent every source offset, so writing the
+   * caret out and reading it back loses precision the edit engine depends on —
+   * and this fires after every render, so the loss compounds. Where the reading
+   * means the same place on screen as the caret we already hold, the one we
+   * hold is the better of the two and stays.
+   */
+  function readingIsOurOwn(sel) {
+    const caret = store.state.caret;
+    if (!caret) return false;
+    return offsets.readBack(caret.start) === sel.start && offsets.readBack(caret.end) === sel.end;
+  }
+
   function onSelectionChange() {
     const state = store.state;
     if (dialog.open || !state.loaded || !editableView()) return;
     const sel = offsets.readSelection();
     if (!sel) { pendingSelection = null; toolbar.hide(); return; }
-    store.setCaret(sel);
+    if (!readingIsOurOwn(sel)) store.setCaret(sel);
 
     if (state.activeStart !== null && !restoringCaret) {
       const a = store.activeAnnotation();

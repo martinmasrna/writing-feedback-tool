@@ -33,7 +33,7 @@ function sidebar() {
 
 function header() {
   const views = make();
-  for (const v of ['rendered', 'source', 'accepted', 'rejected']) {
+  for (const v of ['rendered', 'source']) {
     const b = make('button');
     b.dataset.view = v;
     views.append(b);

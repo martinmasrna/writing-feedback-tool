@@ -4,7 +4,7 @@
  * state.js — all three of which are pure and tested.
  */
 
-import { transform, hasReason } from './criticmarkup.js';
+import { hasReason } from './criticmarkup.js';
 import * as edits from './edits.js';
 import { createStore } from './state.js';
 import { buildDocument } from './dom/render.js';
@@ -29,9 +29,6 @@ export function createApp() {
   const store = createStore();
   const offsets = createOffsetIndex(doc);
   const toast = createToast($('#toast'));
-
-  /** Both editing views; the two previews are read-only. */
-  const editableView = () => store.state.view === 'rendered' || store.state.view === 'source';
 
   /** Set while we restore the caret ourselves, so it does not read as a user move. */
   let restoringCaret = false;
@@ -94,30 +91,21 @@ export function createApp() {
   function render() {
     const state = store.state;
     doc.classList.toggle('rendered', state.view === 'rendered');
+    doc.textContent = '';
     if (state.view === 'rendered') {
-      doc.setAttribute('contenteditable', 'true');
-      doc.classList.remove('readonly');
-      doc.textContent = '';
       const { fragment, mappings, visible } = buildRendered(state.text);
       doc.append(fragment);
       offsets.reindex(mappings, visible);
-    } else if (state.view === 'source') {
-      doc.setAttribute('contenteditable', 'true');
-      doc.classList.remove('readonly');
-      doc.textContent = '';
+    } else {
       doc.append(buildDocument(state.text, state.anns));
       offsets.reindex();
-    } else {
-      doc.setAttribute('contenteditable', 'false');
-      doc.classList.add('readonly');
-      doc.textContent = transform(state.text, state.view);
     }
 
     renderSidebar(state);
     renderHeader(state, store.dirty());
     $('#empty').style.display = state.loaded ? 'none' : 'flex';
 
-    if (editableView() && state.caret && !dialog.open) {
+    if (state.caret && !dialog.open) {
       restoringCaret = true;
       offsets.writeSelection(state.caret);
       setTimeout(() => { restoringCaret = false; }, 0);
@@ -166,7 +154,7 @@ export function createApp() {
 
   function onSelectionChange() {
     const state = store.state;
-    if (dialog.open || !state.loaded || !editableView()) return;
+    if (dialog.open || !state.loaded) return;
     const sel = offsets.readSelection();
     if (!sel) { pendingSelection = null; toolbar.hide(); return; }
     if (!readingIsOurOwn(sel)) store.setCaret(sel);
@@ -250,7 +238,6 @@ export function createApp() {
   }
 
   function reveal(index) {
-    if (!editableView()) store.setView('rendered');
     const a = store.state.anns[index];
     const node = doc.querySelector(`.ann[data-i="${index}"]`)
       || (a && doc.querySelector(`[data-start="${a.start}"]`));
@@ -280,7 +267,7 @@ export function createApp() {
 
   function runStructure(fn) {
     const state = store.state;
-    if (!state.loaded || !editableView() || !state.caret) return;
+    if (!state.loaded || !state.caret) return;
     const result = fn(state.text, state.caret);
     if (!result) return;
     if (result.blockedReason === 'unsupported') {
@@ -312,7 +299,7 @@ export function createApp() {
     apply: applyResult,
     getText: () => store.state.text,
     getView: () => store.state.view,
-    canEdit: () => store.state.loaded && editableView(),
+    canEdit: () => store.state.loaded,
     undo: () => store.undo(),
     redo: () => store.redo(),
     onComposedRender: render,

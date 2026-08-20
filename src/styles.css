@@ -66,7 +66,6 @@ main{display:flex;height:calc(100% - 46px)}
   -webkit-user-select:text;user-select:text;
   outline:none;caret-color:var(--ink);
 }
-#doc.readonly{-webkit-user-select:none;user-select:none;color:var(--ink-2)}
 #doc ::selection,#doc::selection{background:rgba(23,24,26,.16)}
 
 #sidebar{width:334px;flex:none;border-left:1px solid var(--line);background:var(--surface);

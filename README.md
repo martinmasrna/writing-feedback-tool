@@ -56,8 +56,6 @@ accepts it, a heading being demoted drawn at the level it is becoming.
 on screen, so this is where you edit anything the rendered view will not touch:
 code fences, tables and raw HTML render there as read-only islands.
 
-**Accepted** and **Rejected** are read-only previews of the document either way.
-
 ## Running it
 
 The shipped artifact is a single self-contained file:
@@ -141,8 +139,7 @@ to a deletion, and edits that undo each other leave nothing behind.
 ## Scope
 
 Annotations are only ever *created* here. Accepting or rejecting them is a
-different tool's job — though **Accepted** and **Rejected** in the header preview
-what the document would look like either way.
+different tool's job.
 
 Markdown is a closed set: headings, paragraphs, bold, italic, inline code,
 links, bullet and numbered lists, blockquotes, rules. Code fences, tables and

@@ -16,8 +16,6 @@
   <div class="seg" id="views">
     <button data-view="rendered" class="on">Rendered</button>
     <button data-view="source">Source</button>
-    <button data-view="accepted">Accepted</button>
-    <button data-view="rejected">Rejected</button>
   </div>
   <div class="sep"></div>
   <button class="ghost" id="btnUndo" title="Undo (⌘Z)" aria-label="Undo">&#8630;</button>
@@ -30,7 +28,7 @@
 
 <main>
   <section id="docPane">
-    <div id="doc" spellcheck="false"></div>
+    <div id="doc" contenteditable="true" spellcheck="false"></div>
     <div id="empty">
       <div class="card">
         <div id="drop">

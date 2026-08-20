@@ -14,11 +14,34 @@ select and type over. Nothing is edited destructively:
 | ⌫ or ⌦ on original text | `{--struck text--}` |
 | select, then type | `{~~old~>new~~}` |
 | ⌘⌥M on a selection | `{==passage==}{>>comment<<}` |
+| ⌘⇧8, ⌘⌥1…6 and the rest | the marker itself, tracked — `{++- ++}`, `{~~## ~># ~~}` |
 | ⌫ on text *you* just typed | plain erase — your own draft isn't tracked |
 
-A reason is a comment directly after an edit: `{~~old~>new~~}{>>why<<}`. When you
-move the cursor away from an edit, redline asks for one. Esc skips and leaves a
-visible `NO REASON` marker; you can fill it in later from the sidebar.
+Rejecting every annotation gives back exactly the file you opened. That is the
+one promise, and the editor enforces it: an edit that would break it is refused
+rather than made.
+
+## Reasons
+
+A reason is a comment directly after an edit: `{~~old~>new~~}{>>why<<}`.
+
+You are never interrupted for one. Reasons are a review-time act, not a
+typing-time one — you press Enter for room, write, delete half of it, come back
+ten minutes later. So an unexplained edit is *marked* instead: inline as
+`NO REASON`, in the sidebar, and in the header counter. Click any of them to
+write it, or press ⌘⌥R to walk through what is still outstanding.
+
+## Views
+
+**Rendered** is the default and is a full editing surface: formatted prose, with
+both halves of every change on screen — struck text still visible until someone
+accepts it, a heading being demoted drawn at the level it is becoming.
+
+**Source** shows the raw markdown with the delimiters dimmed. Every character is
+on screen, so this is where you edit anything the rendered view will not touch:
+code fences, tables and raw HTML render there as read-only islands.
+
+**Accepted** and **Rejected** are read-only previews of the document either way.
 
 ## Running it
 
@@ -43,7 +66,7 @@ file; everywhere else it falls back to a download.
 
 ```
 npm run dev         # static server on :4173, loads src/ as ES modules
-npm test            # node's test runner, no browser needed
+npm test            # node's test runner; no browser, jsdom for the DOM layer
 npm run test:watch
 ```
 
@@ -58,35 +81,47 @@ drift apart. There is no database and no export step.
 
 ```
 src/
-  criticmarkup.js   parsing, offsets, serialisation            ← pure, tested
-  edits.js          what each keystroke does to the source     ← pure, tested
-  state.js          document store, history, caret
-  input.js          beforeinput interception, shortcuts
-  files.js          open / save / copy / drag-and-drop
-  dom/render.js     source view construction
-  dom/offsets.js    DOM position ↔ source offset mapping
-  ui/               header, sidebar, toolbar, dialog, toast
-  app.js            wiring
-tools/build.js      bundles and inlines everything into one HTML file
+  criticmarkup.js       parsing, offsets, serialisation        ← pure
+  visible.js            CriticMarkup resolved to what a reader sees
+  blocks.js             headings, lists, quotes, islands
+  inline.js             bold, italic, code, links
+  edits.js              what each keystroke does to the source ← pure
+  editor.js             one place every keystroke goes through ← pure
+  structure.js          bullets, heading levels, emphasis      ← pure
+  state.js              document store, history, caret
+  input.js              beforeinput interception, shortcuts
+  files.js              open / save / copy
+  dom/render.js         source view construction
+  dom/render-rendered.js  rendered view construction
+  dom/offsets.js        DOM position ↔ source offset mapping
+  ui/                   header, sidebar, toolbar, dialog, toast
+  app.js                wiring
+tools/build.js          bundles and inlines everything into one HTML file
 ```
 
-Two invariants hold the design up.
+Three invariants hold the design up.
 
-**Every source character is rendered exactly once, in order.** Delimiters are
-dimmed rather than hidden, so mapping a DOM position to a source offset is a
-running sum over text nodes, and what you see is provably what is on disk.
+**CriticMarkup is resolved before markdown is parsed.** `visible.js` turns the
+source into the text a reader sees — delimiters gone, both halves of every
+change kept — and the markdown parsing happens on *that*. Parsing the two
+grammars together is what used to leak `{++` onto the screen and break emphasis
+whenever an edit landed inside it.
 
 **The browser never mutates the document.** `#doc` is `contenteditable`, but
 every `beforeinput` is cancelled and turned into an operation on the markdown
 string, which is then re-rendered. Anything that must not be edited — delimiters,
-struck text, comment chips — is `contenteditable="false"`, so the caret cannot
-get inside markup and corrupt it.
+struck text, comment chips — is `contenteditable="false"`.
 
-That second invariant is why `edits.js` is pure: the whole editing model is
-`(text, caret) → (text, caret)`, which is testable without a DOM. The merge
-rules live there — holding ⌫ grows one deletion rather than making a chain of
-them, a burst of typing produces one insertion, emptying a substitution's
-replacement collapses it back to a deletion.
+**Anything about where the caret is gets asked in visible coordinates.** Source
+offsets lie whenever markup is in the way, and quietly: two offsets six
+characters apart in the file can be the same place on screen, and a block whose
+first character is inside an annotation starts past its own opening delimiter.
+
+The second invariant is why `edits.js` is pure: the whole editing model is
+`(text, caret) → (text, caret)`, testable without a DOM. The merge rules live
+there — holding ⌫ grows one deletion rather than a chain, a burst of typing
+produces one insertion, emptying a substitution's replacement collapses it back
+to a deletion, and edits that undo each other leave nothing behind.
 
 ## Scope
 
@@ -94,9 +129,10 @@ Annotations are only ever *created* here. Accepting or rejecting them is a
 different tool's job — though **Accepted** and **Rejected** in the header preview
 what the document would look like either way.
 
-There is no rendered-markdown editing view. Selection has to map one-to-one onto
-source offsets, and mapping a rendered view back to source is explicitly out of
-scope.
+Markdown is a closed set: headings, paragraphs, bold, italic, inline code,
+links, bullet and numbered lists, blockquotes, rules. Code fences, tables and
+raw HTML are shown but not parsed, and are edited in the Source view. Nothing
+guesses at structure it does not fully understand.
 
 ## Known limits
 
@@ -105,3 +141,4 @@ scope.
   boundary is refused with a message.
 - IME composition is handled by discarding the browser's DOM edit and reapplying
   the composed string. It works, but has not been exercised heavily.
+- Dragging text within the document does not move it; use cut and paste.

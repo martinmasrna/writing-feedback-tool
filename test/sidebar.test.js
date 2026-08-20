@@ -39,14 +39,15 @@ function header() {
     views.append(b);
   }
   const refs = {
-    counts: make(), dirtyDot: make(), fileName: make(), undo: make('button'), redo: make('button'),
-    save: make('button'), copy: make('button'), views, note: make(), pending: make(),
+    dirtyDot: make(), fileName: make(), undo: make('button'), redo: make('button'),
+    save: make('button'), copy: make('button'), views,
   };
-  const render = createHeader(refs, { onView() {}, onReviewReasons() {} });
+  const render = createHeader(refs, { onView() {} });
   return {
     refs,
     show(source, extra = {}) {
-      render({ anns: parse(source), loaded: true, name: 'doc.md', view: 'rendered', undo: [], redo: [], ...extra }, false);
+      render({ anns: parse(source), loaded: true, name: 'doc.md', view: 'rendered', undo: [], redo: [], ...extra },
+        extra.dirty === true);
       return refs;
     },
   };
@@ -134,17 +135,18 @@ test('an empty document says how to start', () => {
 
 /* --- the header ------------------------------------------------------------- */
 
-test('the header counts each kind, and how many still need a reason', () => {
+// Rendering against exactly these refs is the check that nothing else is left
+// in the bar: a header still reaching for a counter would throw here.
+test('the header says which file, whether it is saved, and which view', () => {
   const h = header();
-  const refs = h.show('A {--cut--}{>>why<<} and an {++add++} and a {~~old~>new~~} and a {>>note<<}.\n');
-  const counts = [...refs.counts.querySelectorAll('.cnt')].map((n) => n.textContent);
-  assert.deepEqual(counts, ['+ 1', '− 1', '⇄ 1', '▣ 1'], 'one of each kind');
-  assert.equal(refs.pending.textContent, '2 without reason', 'the insertion and the substitution');
-});
+  const refs = h.show('A {--cut--} here.\n');
+  assert.equal(refs.fileName.textContent, 'doc.md');
+  assert.equal(refs.dirtyDot.classList.contains('on'), false);
+  assert.equal([...refs.views.children].find((b) => b.classList.contains('on')).dataset.view, 'rendered');
 
-test('nothing left to explain says nothing at all', () => {
-  const refs = header().show('A {--cut--}{>>because<<} here.\n');
-  assert.equal(refs.pending.textContent, '');
+  h.show('A {--cut--} here.\n', { dirty: true, view: 'source' });
+  assert.equal(refs.dirtyDot.classList.contains('on'), true, 'unsaved work is marked');
+  assert.equal([...refs.views.children].find((b) => b.classList.contains('on')).dataset.view, 'source');
 });
 
 /* --- and over documents the editor actually produces ------------------------ */

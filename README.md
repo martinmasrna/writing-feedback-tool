@@ -27,9 +27,9 @@ A reason is a comment directly after an edit: `{~~old~>new~~}{>>why<<}`.
 
 You are never interrupted for one. Reasons are a review-time act, not a
 typing-time one — you press Enter for room, write, delete half of it, come back
-ten minutes later. So an unexplained edit is *marked* instead: inline, in the
-sidebar, and in the header counter. Click its sidebar entry to write the
-reason, or press ⌘⌥R to walk through what is still outstanding.
+ten minutes later. So an unexplained edit is *marked* instead: inline, and in
+the sidebar. Click its sidebar entry to write the reason, or press ⌘⌥R to walk
+through everything still outstanding.
 
 Inline, nothing is drawn for a reason at all — the rendered view puts no glyph
 of its own into the prose. The change is already on screen, so it carries both

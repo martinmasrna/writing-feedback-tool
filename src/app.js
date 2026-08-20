@@ -41,12 +41,11 @@ export function createApp() {
   /* --- rendering --------------------------------------------------------- */
 
   const renderHeader = createHeader({
-    counts: $('#counts'), dirtyDot: $('#dirtyDot'), fileName: $('#fileName'),
+    dirtyDot: $('#dirtyDot'), fileName: $('#fileName'),
     undo: $('#btnUndo'), redo: $('#btnRedo'), save: $('#btnSave'), copy: $('#btnCopy'),
-    views: $('#views'), note: $('#readonlyNote'), pending: $('#pending'),
+    views: $('#views'),
   }, {
     onView: (view) => { toolbar.hide(); store.setView(view); },
-    onReviewReasons: () => reviewNextReason(),
   });
 
   const renderSidebar = createSidebar({ list: $('#list'), count: $('#annCount') }, {
@@ -140,8 +139,8 @@ export function createApp() {
    * room, write, delete half of it, come back ten minutes later. Being asked
    * "why?" five seconds after every keystroke fights that, and re-arms itself
    * on the next cursor move, which is worse. Unexplained edits are marked
-   * instead — inline, in the sidebar, and in the header — and explained when
-   * the writing is done.
+   * instead — inline and in the sidebar — and explained when the writing is
+   * done.
    */
   function settle() {
     store.clearActive();
@@ -363,7 +362,7 @@ export function createApp() {
     if (unexplained) {
       setTimeout(() => toast(
         `${unexplained} annotation${unexplained === 1 ? '' : 's'} still without a reason — `
-        + 'click the counter in the header to work through them.'), 1200);
+        + 'press \u2318\u2325R to work through them.'), 1200);
     }
   }
 

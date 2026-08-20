@@ -24,6 +24,10 @@ const downloads = [];
 window.HTMLAnchorElement.prototype.click = function click() { downloads.push(this.download); };
 globalThis.URL.createObjectURL = () => 'blob:test';
 globalThis.URL.revokeObjectURL = () => {};
+// `download()` schedules the revoke a second and a half out, which would hold
+// the test runner open for exactly that long after the last assertion.
+const realSetTimeout = globalThis.setTimeout;
+globalThis.setTimeout = (fn, ms, ...rest) => realSetTimeout(fn, ms >= 1000 ? 0 : ms, ...rest);
 
 /** A handle of the shape the File System Access API hands back. */
 function fakeHandle(name, onWrite) {

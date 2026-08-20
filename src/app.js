@@ -67,7 +67,7 @@ export function createApp() {
     dialog: $('#dialog'), scrim: $('#scrim'), title: $('#dlgTitle'), ctx: $('#dlgCtx'),
     reason: $('#fReason'), reasonLabel: $('#lblReason'), reasonOpt: $('#reasonOpt'),
     text: $('#fText'), textLabel: $('#lblText'), textRow: $('#textRow'),
-    apply: $('#dlgApply'), close: $('#dlgClose'), hint: $('#dlgHint'),
+    apply: $('#dlgApply'), close: $('#dlgClose'),
   }, {
     onAnnotate: (spec, message) => {
       if (!spec) { toast(message); return; }

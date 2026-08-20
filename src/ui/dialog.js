@@ -13,7 +13,8 @@ import { KINDS } from '../criticmarkup.js';
 const FORMS = {
   sub: { title: 'Replace', textLabel: 'Replacement text', reasonLabel: 'Reason', needsText: true },
   del: { title: 'Delete', textLabel: null, reasonLabel: 'Reason' },
-  hl: { title: 'Comment', textLabel: null, reasonLabel: 'Comment' },
+  // No label: under a dialog titled "Comment", one more "Comment" says nothing.
+  hl: { title: 'Comment', textLabel: null, reasonLabel: '' },
 };
 
 const truncate = (s, n) => {
@@ -105,7 +106,7 @@ export function createDialog(refs, { onAnnotate, onReason, onDismiss }) {
       refs.title.textContent = form.title;
       refs.reasonLabel.textContent = form.reasonLabel;
       refs.reasonOpt.textContent = kind === 'hl' ? '' : 'optional';
-      refs.hint.textContent = 'Enter applies · ⇧Enter newline';
+      refs.reasonLabel.parentNode.hidden = !form.reasonLabel;
       refs.apply.textContent = 'Apply';
       refs.ctx.className = 'dlg-ctx';
       refs.ctx.textContent = truncate(sourceText.slice(selection.start, selection.end), 260);
@@ -125,7 +126,7 @@ export function createDialog(refs, { onAnnotate, onReason, onDismiss }) {
       refs.title.textContent = `Why this ${KINDS[annotation.type].label.toLowerCase()}?`;
       refs.reasonLabel.textContent = 'Reason';
       refs.reasonOpt.textContent = '';
-      refs.hint.textContent = 'Enter attaches · Esc skips';
+      refs.reasonLabel.parentNode.hidden = false;
       refs.apply.textContent = 'Attach reason';
       refs.textRow.style.display = 'none';
       refs.text.value = '';

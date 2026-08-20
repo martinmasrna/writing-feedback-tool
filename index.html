@@ -68,7 +68,8 @@
 <div id="toolbar" role="toolbar"></div>
 <div id="scrim" hidden></div>
 <div id="dialog" hidden role="dialog" aria-modal="true">
-  <div class="dlg-head"><b id="dlgTitle"></b><button class="ghost" id="dlgClose">Esc</button></div>
+  <div class="dlg-head"><b id="dlgTitle"></b><button class="ghost dlg-close" id="dlgClose"
+    type="button" title="Close (Esc)" aria-label="Close">&times;</button></div>
   <div class="dlg-ctx" id="dlgCtx"></div>
   <div class="field">
     <label for="fReason"><span id="lblReason">Reason</span><span class="opt" id="reasonOpt">optional</span></label>
@@ -79,7 +80,6 @@
     <textarea id="fText" rows="2"></textarea>
   </div>
   <div class="dlg-foot">
-    <span class="hint" id="dlgHint">Enter applies · ⇧Enter newline</span>
     <button class="primary" id="dlgApply">Apply</button>
   </div>
 </div>

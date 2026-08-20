@@ -217,6 +217,13 @@ export function lineBoundaryBack(text, p) {
   while (q > lo && text.charAt(q - 1) !== '\n') q--;
   return q;
 }
+export function lineBoundaryForward(text, p) {
+  const [, hi] = plainRun(parse(text), p);
+  const limit = Math.min(hi, text.length);
+  let q = p;
+  while (q < limit && text.charAt(q) !== '\n') q++;
+  return q;
+}
 
 export function deleteWordBackward(text, p) {
   const q = wordBoundaryBack(text, p);
@@ -229,6 +236,10 @@ export function deleteWordForward(text, p) {
 export function deleteLineBackward(text, p) {
   const q = lineBoundaryBack(text, p);
   return q < p ? deleteRange(text, { start: q, end: p }, 'back') : null;
+}
+export function deleteLineForward(text, p) {
+  const q = lineBoundaryForward(text, p);
+  return q > p ? deleteRange(text, { start: p, end: q }, 'fwd') : null;
 }
 
 /* --- Whole block markers -------------------------------------------------- */

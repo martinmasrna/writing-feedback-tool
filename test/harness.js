@@ -39,6 +39,8 @@ const KEYS = {
   'Alt+Backspace': { type: 'deleteWordBackward' },
   'Alt+Delete': { type: 'deleteWordForward' },
   'Cmd+Backspace': { type: 'deleteLineBackward' },
+  'Ctrl+K': { type: 'deleteLineForward' },
+  Cut: { type: 'deleteSelection' },
 };
 
 export function editor(initial, options = {}) {

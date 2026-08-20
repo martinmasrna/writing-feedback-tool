@@ -107,7 +107,8 @@ export function crossesUnsupported(text, sel) {
 
 const MUTATING = new Set([
   'insertText', 'insertParagraph', 'insertLineBreak', 'paste',
-  'deleteBackward', 'deleteForward', 'deleteWordBackward', 'deleteWordForward', 'deleteLineBackward',
+  'deleteBackward', 'deleteForward', 'deleteWordBackward', 'deleteWordForward',
+  'deleteLineBackward', 'deleteLineForward', 'deleteSelection',
 ]);
 
 /**
@@ -162,6 +163,14 @@ export function applyAction(state, action) {
 
     case 'deleteLineBackward':
       return collapsed(sel) ? edits.deleteLineBackward(text, sel.start) : edits.deleteRange(text, sel, 'back');
+
+    case 'deleteLineForward':
+      return collapsed(sel) ? edits.deleteLineForward(text, sel.start) : edits.deleteRange(text, sel, 'fwd');
+
+    // Cutting, and dragging text out of the document, delete a selection and
+    // nothing else: with no selection there is nothing to take.
+    case 'deleteSelection':
+      return collapsed(sel) ? null : edits.deleteRange(text, sel, 'back');
 
     default:
       return null;

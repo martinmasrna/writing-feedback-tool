@@ -42,6 +42,16 @@ export function attachInput(doc, { read, apply, getText, getView, canEdit, undo,
       case 'deleteWordForward':         apply(applyAction(state, { type: 'deleteWordForward' })); break;
       case 'deleteSoftLineBackward':
       case 'deleteHardLineBackward':    apply(applyAction(state, { type: 'deleteLineBackward' })); break;
+      case 'deleteSoftLineForward':
+      case 'deleteHardLineForward':
+      case 'deleteEntireSoftLine':      apply(applyAction(state, { type: 'deleteLineForward' })); break;
+      // Cut and drag-out. Every `beforeinput` here is cancelled, so anything
+      // this switch does not name is a keystroke that silently does nothing —
+      // ⌘X used to put the selection on the clipboard and leave it in the
+      // document, which is a copy, not a cut.
+      case 'deleteByCut':
+      case 'deleteByDrag':
+      case 'deleteContent':             apply(applyAction(state, { type: 'deleteSelection' })); break;
       case 'historyUndo':               undo(); break;
       case 'historyRedo':               redo(); break;
       default: break;

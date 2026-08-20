@@ -103,10 +103,17 @@ export function toSource(visible, offset) {
  * standing there is drawn.
  */
 export function toVisibleOffset(visible, offset) {
-  for (let i = 0; i < visible.map.length; i++) {
-    if (visible.map[i] >= offset) return i;
+  // The map is strictly ascending, and this is asked once per text node on
+  // every render, so walking it is not good enough.
+  const map = visible.map;
+  let lo = 0;
+  let hi = map.length - 1;
+  if (offset > map[hi]) return hi;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (map[mid] >= offset) hi = mid; else lo = mid + 1;
   }
-  return visible.map.length - 1;
+  return lo;
 }
 
 /**

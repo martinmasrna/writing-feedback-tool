@@ -4,7 +4,14 @@
  * The renderer emits every source character exactly once, in order, so the
  * mapping is a running sum over the document's text nodes. Nodes marked
  * `data-virtual` are UI chrome that has no source text behind it and is skipped.
+ *
+ * The rendered view also hands over the visible document, because *finding* the
+ * node for an offset is a question about the screen. Source distance means
+ * nothing across markup: the end of one line and the start of the next can be
+ * six source characters apart and adjacent on the page.
  */
+
+import { toVisibleOffset } from '../visible.js';
 
 const isVirtual = (node) => {
   const el = node.nodeType === 1 ? node : node.parentElement;
@@ -24,6 +31,9 @@ function textWalker(root) {
 export function createOffsetIndex(root) {
   let nodes = [];
   let starts = [];
+  /** Where each node begins on screen. Equal to `starts` when every character is drawn. */
+  let screen = [];
+  let visible = null;
   let total = 0;
   let mapped = false;
 
@@ -44,15 +54,18 @@ export function createOffsetIndex(root) {
      * screen, so it supplies explicit mappings instead — one per text node it
      * emitted, each with the source offset its first character came from.
      */
-    reindex(mappings) {
+    reindex(mappings, visibleDoc) {
       nodes = [];
       starts = [];
+      screen = [];
+      visible = visibleDoc || null;
       total = 0;
       mapped = !!mappings;
       if (mappings) {
         for (const m of mappings) {
           nodes.push(m.node);
           starts.push(m.start);
+          screen.push(visible ? toVisibleOffset(visible, m.start) : m.start);
           total = Math.max(total, m.start + m.node.nodeValue.length);
         }
         return;
@@ -62,6 +75,7 @@ export function createOffsetIndex(root) {
       while ((n = w.nextNode())) {
         nodes.push(n);
         starts.push(total);
+        screen.push(total);
         total += n.nodeValue.length;
       }
     },
@@ -87,24 +101,33 @@ export function createOffsetIndex(root) {
       return null;
     },
 
-    /** A DOM position for a source offset, preferring somewhere the caret can live. */
+    /**
+     * A DOM position for a source offset, preferring somewhere the caret can live.
+     *
+     * Everything here is measured on screen. Asked in source offsets, "which
+     * node is nearest" gives the wrong answer wherever markup sits between two
+     * of them: after Enter at the end of the document the caret is one source
+     * character from the node on the line above and three from the one it
+     * belongs to, and the node it belongs to is at exactly the right place.
+     */
     sourceToPoint(offset) {
       if (!nodes.length) return [root, 0];
+      const at = visible ? toVisibleOffset(visible, offset) : offset;
       let fallback = null;
       let nearest = null;
       let nearestGap = Infinity;
       for (let i = 0; i < nodes.length; i++) {
-        const s = starts[i];
+        const s = screen[i];
         const len = nodes[i].nodeValue.length;
-        if (offset >= s && offset <= s + len) {
-          if (!isAtomic(nodes[i])) return [nodes[i], offset - s];
-          if (!fallback) fallback = [nodes[i], offset - s];
+        if (at >= s && at <= s + len) {
+          if (!isAtomic(nodes[i])) return [nodes[i], at - s];
+          if (!fallback) fallback = [nodes[i], at - s];
         }
         // The rendered view leaves gaps where markup was; fall to the closest node.
-        const gap = offset < s ? s - offset : offset - (s + len);
+        const gap = at < s ? s - at : at - (s + len);
         if (gap > 0 && gap < nearestGap && !isAtomic(nodes[i])) {
           nearestGap = gap;
-          nearest = [nodes[i], offset < s ? 0 : len];
+          nearest = [nodes[i], at < s ? 0 : len];
         }
       }
       if (fallback) return fallback;

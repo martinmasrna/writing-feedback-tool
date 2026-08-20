@@ -174,6 +174,11 @@ export function buildRendered(source) {
   }
 
   function renderContent(parent, from, to) {
+    // A block with nothing in it yet — the bullet Enter has just opened, an
+    // empty heading — is drawn, has height, and has nowhere for the caret to
+    // be. Without a spot it falls to the end of the document, outside the list
+    // it was meant to be in.
+    if (to <= from) landingSpot(parent, toSource(visible, from));
     renderNodes(parent, parseInline(visible.text, from, to));
     // Comments anchored at the very end of the block still belong to it.
     for (const c of visible.comments) {
@@ -277,5 +282,5 @@ export function buildRendered(source) {
   mappings.push({ node: tailNode, start: source.length });
   frag.append(tail);
 
-  return { fragment: frag, mappings };
+  return { fragment: frag, mappings, visible };
 }

@@ -15,7 +15,7 @@ import { JSDOM } from 'jsdom';
 import { buildRendered } from '../src/dom/render-rendered.js';
 import { buildDocument } from '../src/dom/render.js';
 import { createOffsetIndex } from '../src/dom/offsets.js';
-import { toVisible } from '../src/visible.js';
+import { toVisible, toVisibleOffset } from '../src/visible.js';
 import { parse } from '../src/criticmarkup.js';
 import { parseVisibleBlocks } from '../src/blocks.js';
 import { editor } from './harness.js';
@@ -40,11 +40,10 @@ export function installDom() {
 export function render(source) {
   const doc = installDom();
   const host = doc.createElement('div');
-  const { fragment, mappings } = buildRendered(source);
+  const { fragment, mappings, visible } = buildRendered(source);
   host.append(fragment);
   const index = createOffsetIndex(host);
-  index.reindex(mappings);
-  const visible = toVisible(source);
+  index.reindex(mappings, visible);
   return { source, host, mappings, index, visible, blocks: parseVisibleBlocks(visible.text, visible.spans) };
 }
 
@@ -78,6 +77,24 @@ export function screenText(host) {
   return out;
 }
 
+/**
+ * Where a source offset is actually drawn, in visible coordinates, and where it
+ * belongs. The two must agree, or the caret appears somewhere it is not.
+ *
+ * Visible coordinates rather than a round trip through `pointToSource`, because
+ * the screen genuinely cannot tell some offsets apart — the end of an insertion
+ * body and the position past its closing delimiter are one place — and holding
+ * it to that would be demanding something impossible.
+ */
+export function caretDrawnAt(r, offset) {
+  const [node, at] = r.index.sourceToPoint(offset);
+  const m = r.mappings.find((x) => x.node === node);
+  return {
+    belongs: toVisibleOffset(r.visible, offset),
+    drawn: m ? toVisibleOffset(r.visible, m.start) + at : null,
+  };
+}
+
 /** Every text node the renderer mapped, paired with the offset it claims. */
 export function mappedNodes({ mappings }) {
   return mappings.map((m) => ({ text: m.node.nodeValue, start: m.start, node: m.node }));
@@ -108,9 +125,9 @@ export function domSession(initial, options = {}) {
   /** Re-render, put the caret on screen, and read back whatever survived. */
   function settle() {
     host.textContent = '';
-    const { fragment, mappings } = buildRendered(ed.source);
+    const { fragment, mappings, visible } = buildRendered(ed.source);
     host.append(fragment);
-    index.reindex(mappings);
+    index.reindex(mappings, visible);
     index.writeSelection(ed.caret);
     const read = index.readSelection();
     readings.push({ held: ed.caret.start, read: read && read.start });

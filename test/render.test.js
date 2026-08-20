@@ -12,7 +12,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { render, screenText, mappedNodes, isVirtual, installDom } from './dom.js';
+import { render, screenText, mappedNodes, isVirtual, installDom, caretDrawnAt } from './dom.js';
 import { editor } from './harness.js';
 import { toVisibleOffset } from '../src/visible.js';
 import { parseBlocks } from '../src/blocks.js';
@@ -292,6 +292,44 @@ test('a link renders as an anchor and keeps its target off the screen', () => {
 });
 
 /* --- the caret has somewhere to live -------------------------------------- */
+
+/**
+ * Where the caret is *drawn* after ordinary keystrokes.
+ *
+ * `sourceToPoint` used to pick the nearest node by source distance, which means
+ * nothing across markup: after Enter at the end of the document the caret is
+ * one source character from the node on the line above and three from the one
+ * it belongs to. It was drawn a line early. Pressing Enter at the end of a
+ * bullet was worse — the new list item held no text node at all, so the caret
+ * left the list entirely and went to the end of the document.
+ */
+const DRAWN_CASES = [
+  ['Enter at the end of a paragraph', () => editor('# T\n\nBody text here.\n\nSecond.\n').caretAfter('here.').press('Enter')],
+  ['Enter at the end of the document', () => editor('# T\n\nBody text here.\n').caretAtEnd().press('Enter')],
+  ['Enter in the middle of a paragraph', () => editor('# T\n\nBody text here.\n').caretAfter('Body').press('Enter')],
+  ['Enter at the start of a paragraph', () => editor('# T\n\nBody text here.\n').caretBefore('Body').press('Enter')],
+  ['Enter twice', () => editor('# T\n\nBody text here.\n').caretAfter('Body').press('Enter', 2)],
+  ['Enter at the end of a list item', () => editor('- one\n- two\n').caretAfter('two').press('Enter')],
+  ['Enter again on the empty item', () => editor('- one\n- two\n').caretAfter('two').press('Enter').press('Enter')],
+  ['typing a newline', () => editor('# T\n\nBody text here.\n').caretAfter('Body').type('\n')],
+  ['deleting a word off the end of a block', () => editor('# T\n\nAlpha beta gamma.\n\nNext.\n').caretBefore('gamma').press('Alt+Delete')],
+];
+
+for (const [name, build] of DRAWN_CASES) {
+  test(`the caret is drawn where it belongs after ${name}`, () => {
+    const ed = build();
+    const { belongs, drawn } = caretDrawnAt(render(ed.source), ed.caret.start);
+    assert.equal(drawn, belongs, `drawn at ${drawn} on screen, belongs at ${belongs}\n  ${JSON.stringify(ed.marked)}`);
+  });
+}
+
+test('a block with nothing in it yet still has somewhere to stand', () => {
+  const ed = editor('- one\n- two\n').caretAfter('two').press('Enter');
+  const r = render(ed.source);
+  const item = r.host.querySelectorAll('li')[2];
+  assert.ok(item, 'the new bullet is drawn');
+  assert.equal(item.firstChild && item.firstChild.nodeType, 3, 'and holds a text node for the caret');
+});
 
 const CARET_CASES = [
   ['typing in a paragraph', () => editor('# T\n\nBody text.\n').caretAfter('Body').type(' more')],

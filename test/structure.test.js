@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toggleBullet, setHeadingLevel, toggleEmphasis } from '../src/structure.js';
-import { transform } from '../src/criticmarkup.js';
+import { transform, parse, regionAt } from '../src/criticmarkup.js';
 import { parseBlocks } from '../src/blocks.js';
 
 const at = (p) => ({ start: p, end: p });
@@ -188,4 +188,49 @@ test('a marker mid-change is rewritten, never nested', () => {
   const converted = setHeadingLevel(added.text, at(added.caret.start), 2);
   assert.equal(converted.text, '{++## ++}Plain text.\n', 'the insertion is rewritten in place');
   assert.equal(transform(converted.text, 'rejected'), 'Plain text.\n');
+});
+
+/* --- found by fuzzing structural commands alongside typing ---------------- */
+
+test('a heading whose text is already struck keeps its delimiters intact', () => {
+  // `contentStart` maps past the opening `{--`, so slicing the marker to it
+  // took the delimiter along: `{~~# {--~>## ~~}Title--}` is not CriticMarkup,
+  // and rejecting it left `{--` sitting in the prose.
+  const r = setHeadingLevel('# {--Title--}\n\nBody.\n', at(0), 2);
+  assert.equal(r.text, '{~~# ~>## ~~}{--Title--}\n\nBody.\n');
+  assert.equal(transform(r.text, 'rejected'), '# Title\n\nBody.\n');
+});
+
+test('a bullet is never spliced inside an annotation', () => {
+  // The caret sits in an insertion whose body holds the line breaks, so looking
+  // back through the raw source for one found a newline *inside* the markup.
+  // `{++\n\n{++- ++}++}` does not parse: rejecting it left a stray `++}`.
+  const r = toggleBullet('{--Plain--}{++\n\n++} text only.\n', at(16), {});
+  assert.equal(r.text, '{--Plain--}{++\n\n++}{++- ++} text only.\n');
+  assert.equal(transform(r.text, 'rejected'), 'Plain text only.\n');
+});
+
+test('a marker inside a larger change is refused, not rewritten in place', () => {
+  // The `- ` here is the head of a longer insertion, so a substitution over it
+  // would land inside that annotation and nest.
+  assert.deepEqual(setHeadingLevel('{++- item++}\n', at(5), 2), { blockedReason: 'markup' });
+});
+
+test('toggling a marker that Enter just wrote keeps the line break', () => {
+  // `{++\n- ++}` is a line break *and* a marker. Treating the whole body as the
+  // marker and replacing it collapsed two list items onto one line.
+  const off = toggleBullet('- one\n{++\n- ++}two\n', at(11), {});
+  assert.equal(off.text, '- one\n{++\n++}two\n', 'the break stays, and stays tracked');
+  assert.equal(transform(off.text, 'rejected'), '- one\ntwo\n');
+
+  const converted = toggleBullet('- one\n{++\n- ++}two\n', at(11), { ordered: true });
+  assert.equal(converted.text, '- one\n{++\n1. ++}two\n');
+  assert.equal(transform(converted.text, 'rejected'), '- one\ntwo\n');
+});
+
+test('the caret survives having the marker under it replaced', () => {
+  // Shifting alone left a caret that was inside the old marker exactly where it
+  // was, which after the marker shrank was in the middle of the new markup.
+  const r = setHeadingLevel('{++1. ++}Body\n', at(5), 3);
+  assert.notEqual(regionAt(parse(r.text), r.caret.start).kind, 'atomic');
 });

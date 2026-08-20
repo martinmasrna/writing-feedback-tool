@@ -14,28 +14,53 @@
  * Pure: source and caret in, source and caret out.
  */
 
-import { parseBlocks, blockAt } from './blocks.js';
-import { parse, regionAt } from './criticmarkup.js';
+import { blockFor } from './blocks.js';
+import { parse, regionAt, overlapping } from './criticmarkup.js';
+import { toVisible, toSource, toVisibleOffset, toSourceRange } from './visible.js';
 
 const splice = (text, a, b, ins) => text.slice(0, a) + ins + text.slice(b);
 
-/** Keep a caret pointing at the same character across an edit at `at`. */
+/** Keep a caret pointing at the same character across an insertion at `at`. */
 function shift(caret, at, delta) {
   if (!caret) return caret;
   const move = (p) => (p >= at ? p + delta : p);
   return { start: move(caret.start), end: move(caret.end) };
 }
 
-/** Start of the raw source line containing `offset`. */
-function lineStart(text, offset) {
-  const nl = text.lastIndexOf('\n', Math.max(0, offset - 1));
-  return nl < 0 ? 0 : nl + 1;
+/**
+ * Carry a caret across a replacement of [from,to).
+ *
+ * Shifting alone leaves a caret that was *inside* the replaced span exactly
+ * where it was — which after the span shrinks is somewhere in the middle of the
+ * new markup, a place the caret may never be. Rewriting `{++1. ++}` as
+ * `{++- ++}` did precisely that. Inside means the marker it was in is gone, so
+ * it comes to rest where the content now begins.
+ */
+function carry(caret, from, to, mdLength) {
+  if (!caret) return caret;
+  const delta = mdLength - (to - from);
+  const move = (p) => {
+    if (p <= from) return p;
+    if (p >= to) return p + delta;
+    return from + mdLength;
+  };
+  return { start: move(caret.start), end: move(caret.end) };
 }
 
-const MARKER = /^\s*([-*+]|\d{1,9}[.)]|#{1,6})\s+$/;
+/**
+ * An annotation body that is nothing but a block marker, with whatever line
+ * break precedes it kept separate.
+ *
+ * Pressing Enter in a list writes the next item as `{++\n- ++}`, so the lead is
+ * part of the annotation but not part of the marker. Treating the whole body as
+ * the marker and replacing it wholesale swallowed the line break: `2. ` and
+ * `1. second` became the single line `2. - `.
+ */
+const MARKER = /^(\s*)([-*+]|\d{1,9}[.)]|#{1,6})([ \t]+)$/;
 
 /**
- * The tracked change a block marker currently sits inside, if any.
+ * The tracked change a block marker currently sits inside, if any, and the
+ * line break in front of it that must survive being retyped.
  *
  * Offsets cannot be compared directly here: `{++- ++}` puts the marker at 3..5
  * while the block's contentStart is 8, on the far side of the closing
@@ -46,39 +71,77 @@ function markerAnnotation(text, offset) {
   for (const a of parse(text)) {
     if (a.type !== 'ins' && a.type !== 'del') continue;
     if (offset < a.tok.start + 3 || offset >= a.tok.end - 3) continue;
-    if (MARKER.test(a.a)) return a;
+    const m = MARKER.exec(a.a);
+    if (m) return { a, lead: m[1] };
   }
   return null;
 }
 
 /** Drop a tracked marker change, leaving the text as if it never happened. */
-function revert(text, caret, a) {
-  const keep = a.type === 'del' ? a.a : '';       // restore a struck marker; erase an added one
-  const delta = keep.length - (a.end - a.start);
-  return { text: splice(text, a.start, a.end, keep), caret: shift(caret, a.end, delta), coalesce: null };
+function revert(text, caret, a, lead) {
+  // A struck marker comes back as the original text it was. An added one goes
+  // entirely — except for the line break that put it on its own line, which the
+  // user typed and which therefore stays a tracked insertion. Leaving it as
+  // plain text would quietly adopt it into the original document.
+  const keep = a.type === 'del' ? a.a : (lead ? `{++${lead}++}` : '');
+  return { text: splice(text, a.start, a.end, keep), caret: carry(caret, a.start, a.end, keep.length), coalesce: null };
 }
 
 /** Refuse to touch anything we do not fully understand. */
 function guard(text, caret) {
-  const blocks = parseBlocks(text);
-  const block = blockAt(blocks, caret.start);
+  const block = blockFor(text, caret.start);
   if (!block) return { error: 'no block' };
   if (block.type === 'unsupported') return { error: 'unsupported' };
-  return { blocks, block };
+  return { block };
 }
 
 /* -------------------------------------------------------------------------- */
 /* Block markers                                                               */
 /* -------------------------------------------------------------------------- */
 
-/** A block's marker — the `- `, `1. `, `## ` or `> ` — or null for a paragraph. */
+/**
+ * A block's marker — the `- `, `1. `, `## ` or `> ` — or null for a paragraph.
+ *
+ * The range is worked out on screen and mapped back, because source offsets lie
+ * whenever markup is in the way. With a heading's text struck, `contentStart`
+ * maps past the opening `{--`, and slicing to it takes the delimiter along;
+ * substituting over that produced `{~~# {--~>## ~~}Title--}`, which is not
+ * CriticMarkup at all. Rejecting it left `{--` sitting in the prose.
+ */
 function markerOf(text, block) {
-  if (block.markerStart === undefined || block.contentStart <= block.markerStart) return null;
-  return {
-    start: block.markerStart,
-    end: block.contentStart,
-    text: text.slice(block.markerStart, block.contentStart),
-  };
+  const from = block.visible.markerStart;
+  const to = block.visible.markerEnd ?? block.visible.contentStart;
+  if (from === undefined || to === undefined || to <= from) return null;
+  const { start, end } = toSourceRange(toVisible(text), from, to);
+  return { start, end, text: text.slice(start, end) };
+}
+
+/**
+ * Where a marker can go at the head of a block that has none, or null when
+ * there is nowhere for it and the command must refuse.
+ *
+ * The line is found on screen, not in the source. Looking back through the raw
+ * text for a newline finds the one *inside* an insertion whose body holds a
+ * line break, and splicing a marker at that offset nests one annotation inside
+ * another: `{++\n\n{++- ++}++}` does not parse, and rejecting it leaves a
+ * stray `++}` in the prose.
+ *
+ * It is the caret's line, not the block's first — consecutive paragraph lines
+ * are one block, and a bullet belongs where the caret is.
+ *
+ * The front of an annotation is a fine place for a marker, as long as the line
+ * starts there too. Anywhere else inside one, we decline rather than guess.
+ */
+function markerInsertPoint(text, block, caret) {
+  const visible = toVisible(text);
+  let line = toVisibleOffset(visible, caret.start);
+  while (line > block.visible.contentStart && visible.text.charAt(line - 1) !== '\n') line--;
+
+  const at = toSource(visible, line);
+  const region = regionAt(parse(text), at);
+  if (region.kind === 'plain') return at;
+  const span = visible.spans.find((sp) => sp.annStart === region.a.start);
+  return span && span.start === line ? region.a.start : null;
 }
 
 /**
@@ -92,31 +155,35 @@ function markerOf(text, block) {
 function applyMarker(text, caret, block, next) {
   const marker = markerOf(text, block);
   const mine = marker ? markerAnnotation(text, marker.start) : null;
-  const rewrite = (from, to, md, oldLength) => ({
+  const rewrite = (from, to, md) => ({
     text: splice(text, from, to, md),
-    caret: shift(caret, to, md.length - oldLength),
+    caret: carry(caret, from, to, md.length),
     coalesce: null,
   });
 
   // A marker already mid-change is rewritten in place, never nested inside a
   // second annotation.
   if (mine) {
-    if (!next) return revert(text, caret, mine);
-    const md = mine.type === 'ins' ? `{++${next}++}` : `{~~${mine.a}~>${next}~~}`;
-    return rewrite(mine.start, mine.end, md, mine.end - mine.start);
+    const { a, lead } = mine;
+    if (!next) return revert(text, caret, a, lead);
+    const md = a.type === 'ins' ? `{++${lead}${next}++}` : `{~~${a.a}~>${lead}${next}~~}`;
+    return rewrite(a.start, a.end, md);
   }
 
   if (!marker) {
     if (!next) return null;
-    const at = lineStart(text, caret.start);
+    const at = markerInsertPoint(text, block, caret);
+    if (at === null) return { blockedReason: 'markup' };
     const md = `{++${next}++}`;
     return { text: splice(text, at, at, md), caret: shift(caret, at, md.length), coalesce: null };
   }
 
-  if (regionAt(parse(text), marker.start).kind === 'atomic') return { blockedReason: 'markup' };
+  // A marker inside a change that is not *only* the marker cannot be rewritten
+  // in place — the substitution would land inside the annotation and nest.
+  if (overlapping(parse(text), marker.start, marker.end)) return { blockedReason: 'markup' };
   if (marker.text === next) return null;
   const md = next ? `{~~${marker.text}~>${next}~~}` : `{--${marker.text}--}`;
-  return rewrite(marker.start, marker.end, md, marker.text.length);
+  return rewrite(marker.start, marker.end, md);
 }
 
 /** Blocks that have no marker to change and no content to carry one. */

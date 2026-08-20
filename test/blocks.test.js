@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBlocks, splitLines, blockAt, fullySupported, SUPPORTED } from '../src/blocks.js';
+import { parseBlocks, splitLines, blockFor, fullySupported, SUPPORTED } from '../src/blocks.js';
 import { transform as transformFor } from '../src/criticmarkup.js';
 
 const kinds = (text) => parseBlocks(text).map((b) => b.type);
@@ -106,11 +106,18 @@ test('a reason comment does not disturb classification', () => {
 
 /* --- helpers -------------------------------------------------------------- */
 
-test('blockAt finds the block containing an offset', () => {
+test('blockFor finds the block containing an offset', () => {
   const doc = '# Title\n\nA paragraph.\n';
-  const blocks = parseBlocks(doc);
-  assert.equal(blockAt(blocks, 2).type, 'heading');
-  assert.equal(blockAt(blocks, doc.indexOf('paragraph')).type, 'paragraph');
+  assert.equal(blockFor(doc, 2).type, 'heading');
+  assert.equal(blockFor(doc, doc.indexOf('paragraph')).type, 'paragraph');
+});
+
+test('blockFor answers on screen, where a caret between two blocks really is', () => {
+  // The caret sits at the end of the replacement, which is six source
+  // characters from the bullet's text and one from the paragraph's — but on
+  // screen it is exactly at the head of the bullet.
+  const doc = 'Body\n\n{~~Trailing~>\n~~}{++- ++} item\n';
+  assert.equal(blockFor(doc, doc.indexOf('~~}')).type, 'listItem');
 });
 
 test('fullySupported flags documents the rendered view cannot fully edit', () => {

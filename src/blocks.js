@@ -18,7 +18,7 @@
  */
 
 import { transform, parse } from './criticmarkup.js';
-import { toVisible, toSource } from './visible.js';
+import { toVisible, toSource, toVisibleOffset } from './visible.js';
 
 /** Everything the rendered view is allowed to edit in place. */
 export const SUPPORTED = new Set(['paragraph', 'heading', 'listItem', 'blockquote', 'rule', 'blank']);
@@ -254,12 +254,34 @@ function headingLevel(text, block) {
   return hashes ? hashes[1].length : block.level;
 }
 
-/** The block containing an offset, or the nearest one. */
-export function blockAt(blocks, offset) {
+/**
+ * The block an offset belongs to, decided on screen rather than in the source.
+ *
+ * Source ranges cannot answer this. A block's range runs from its first *drawn*
+ * character to its last, so as soon as a block opens or closes inside an
+ * annotation its range stops short of the delimiters — and a caret standing
+ * between two blocks falls outside both, at a source distance that means
+ * nothing. `{~~Trailing~>\n~~}{++- ++} paragraph.` puts the caret at the end of
+ * the replacement, six source characters from the bullet's text and one from
+ * the paragraph's; on screen it is exactly at the head of the bullet, which is
+ * where the reader sees it.
+ *
+ * Reading it in the source sent structural commands to the wrong block
+ * entirely — sometimes to the last one in the document — and a second marker
+ * went in front of the first: `# 1.  one.`
+ */
+export function blockFor(text, offset) {
+  const visible = toVisible(text);
+  const blocks = parseBlocks(text);
+  const at = toVisibleOffset(visible, offset);
+  let nearest = null;
+  let best = Infinity;
   for (const b of blocks) {
-    if (offset >= b.start && offset <= b.end) return b;
+    if (at >= b.visible.start && at <= b.visible.end) return b;
+    const gap = at < b.visible.start ? b.visible.start - at : at - b.visible.end;
+    if (gap < best) { best = gap; nearest = b; }
   }
-  return blocks[blocks.length - 1] || null;
+  return nearest;
 }
 
 /** Is this document entirely made of constructs the rendered view can edit? */

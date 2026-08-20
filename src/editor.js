@@ -12,7 +12,7 @@
  */
 
 import * as edits from './edits.js';
-import { parseBlocks, blockAt } from './blocks.js';
+import { parseBlocks, blockFor } from './blocks.js';
 import { toVisible, toVisibleOffset, toSourceRange } from './visible.js';
 
 /** @typedef {{text:string, caret:{start:number,end:number}, view:string}} EditorState */
@@ -31,8 +31,12 @@ const collapsed = (sel) => sel.end <= sel.start;
 export function paragraphBreak(text, caret, view) {
   if (view !== 'rendered') return '\n';
   const at = caret.start;
-  const block = blockAt(parseBlocks(text), at);
+  const block = blockFor(text, at);
   if (block && block.type === 'listItem') {
+    // In front of the marker, Enter opens a line above the item. Starting a
+    // second item there puts both markers on one line — `1. 1. Heading` — which
+    // is not a list of two things and not what anybody meant.
+    if (toVisibleOffset(toVisible(text), at) <= block.visible.markerStart) return '\n';
     const marker = text.slice(block.markerStart, block.contentStart);
     const next = `${' '.repeat(block.indent || 0)}${block.ordered ? '1. ' : marker.trimStart()}`;
     // Past the end of the item we are already on a fresh line; adding another
@@ -55,7 +59,7 @@ export function paragraphBreak(text, caret, view) {
  */
 export function markerBefore(text, caret, view) {
   if (view !== 'rendered') return null;
-  const block = blockAt(parseBlocks(text), caret.start);
+  const block = blockFor(text, caret.start);
   if (!block || block.markerStart === undefined) return null;
   if (block.visible.contentStart <= block.visible.markerStart) return null;
 
@@ -95,7 +99,7 @@ export function blockJoinBefore(text, caret, view) {
 export function crossesUnsupported(text, sel) {
   const blocks = parseBlocks(text);
   if (collapsed(sel)) {
-    const here = blockAt(blocks, sel.start);
+    const here = blockFor(text, sel.start);
     return here && here.type === 'unsupported' && sel.start > here.start && sel.start < here.end ? here : null;
   }
   return blocks.find((b) => b.type === 'unsupported' && sel.start < b.end && sel.end > b.start) || null;

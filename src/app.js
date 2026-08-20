@@ -9,7 +9,7 @@ import * as edits from './edits.js';
 import { createStore } from './state.js';
 import { buildDocument } from './dom/render.js';
 import { buildRendered } from './dom/render-rendered.js';
-import { parseBlocks, blockAt } from './blocks.js';
+import { parseBlocks, blockFor } from './blocks.js';
 import * as structure from './structure.js';
 import { createOffsetIndex } from './dom/offsets.js';
 import { createToast } from './ui/toast.js';

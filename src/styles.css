@@ -30,7 +30,31 @@ button.primary{background:var(--ink);border-color:var(--ink);color:#fff}
 button.primary:hover:not(:disabled){background:#2c2e33;border-color:#2c2e33}
 button.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
 button.ghost:hover:not(:disabled){background:#efedE8;color:var(--ink)}
-#btnUndo,#btnRedo{font-size:15px;line-height:14px;padding:4px 8px}
+/* Icon buttons: the label is on hover, so the bar stays a row of marks.
+   Every icon is a 24-unit Lucide outline, stroked in the button's own colour
+   so a disabled or inverted button carries its icon with it. */
+/* The sprite is a definition, not a picture: without this it lays out at an
+   SVG's default 300x150 and shoves the whole page down. */
+#icons{display:none}
+button.icon{position:relative;display:flex;align-items:center;justify-content:center;
+  width:30px;height:28px;padding:0}
+button.icon svg{width:15px;height:15px;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.seg button.icon{width:34px;height:26px;border-radius:0}
+
+/* The name of the thing, said only when pointed at. */
+[data-label]::after{
+  content:attr(data-label);position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  margin-top:7px;z-index:40;width:max-content;max-width:16em;
+  font-family:var(--ui);font-size:11.5px;line-height:1.45;font-weight:400;
+  color:#fff;background:var(--ink);border-radius:6px;padding:4px 8px;
+  box-shadow:0 4px 14px rgba(23,24,26,.18);
+  opacity:0;pointer-events:none;transition:opacity .12s ease;
+}
+[data-label]:hover::after,[data-label]:focus-visible::after{opacity:1}
+/* The last button has no room to its right to centre a label under. */
+#bar>button:last-child::after{left:auto;right:0;transform:none}
+[data-label]:disabled::after{content:none}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 textarea,input{font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);
   border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;width:100%;resize:vertical}

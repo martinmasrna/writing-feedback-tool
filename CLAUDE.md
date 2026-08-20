@@ -121,6 +121,8 @@ The harness now refuses a caret inside markup and skips selections buried in it,
 
 **`dist/index.html` is generated. Never edit it by hand.** Run `npm run build`. It is committed on purpose: the product is a file you double-click from disk, so a clone has to be immediately usable without a build.
 
+**Icons are Lucide geometry, inlined as an SVG sprite in `index.html`.** One `<symbol>` each, referenced with `<use>`, stroked in `currentColor` so a disabled or inverted button carries its icon with it. Copying the paths rather than depending on the package is what keeps the page one file with no network; the sprite is `display:none`, or it lays out at an SVG's default 300×150 and shoves the whole page down.
+
 **No runtime dependencies, ever.** The page must work offline from `file://` with no network and no CDN. The two devDependencies never reach it: `esbuild` produces the single-file artifact, and `jsdom` gives the render tests a document. The build asserts the output has no external references.
 
 **Docs state the current truth, not its history.** Rewrite lines to say what is now true and delete what isn't. The path lives in git. No "SUPERSEDED" blocks, no tombstones for behaviour that changed.

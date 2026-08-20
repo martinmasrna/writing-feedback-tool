@@ -37,7 +37,31 @@ button.primary{background:var(--ink);border-color:var(--ink);color:#fff}
 button.primary:hover:not(:disabled){background:#2c2e33;border-color:#2c2e33}
 button.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
 button.ghost:hover:not(:disabled){background:#efedE8;color:var(--ink)}
-#btnUndo,#btnRedo{font-size:15px;line-height:14px;padding:4px 8px}
+/* Icon buttons: the label is on hover, so the bar stays a row of marks.
+   Every icon is a 24-unit Lucide outline, stroked in the button's own colour
+   so a disabled or inverted button carries its icon with it. */
+/* The sprite is a definition, not a picture: without this it lays out at an
+   SVG's default 300x150 and shoves the whole page down. */
+#icons{display:none}
+button.icon{position:relative;display:flex;align-items:center;justify-content:center;
+  width:30px;height:28px;padding:0}
+button.icon svg{width:15px;height:15px;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.seg button.icon{width:34px;height:26px;border-radius:0}
+
+/* The name of the thing, said only when pointed at. */
+[data-label]::after{
+  content:attr(data-label);position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  margin-top:7px;z-index:40;width:max-content;max-width:16em;
+  font-family:var(--ui);font-size:11.5px;line-height:1.45;font-weight:400;
+  color:#fff;background:var(--ink);border-radius:6px;padding:4px 8px;
+  box-shadow:0 4px 14px rgba(23,24,26,.18);
+  opacity:0;pointer-events:none;transition:opacity .12s ease;
+}
+[data-label]:hover::after,[data-label]:focus-visible::after{opacity:1}
+/* The last button has no room to its right to centre a label under. */
+#bar>button:last-child::after{left:auto;right:0;transform:none}
+[data-label]:disabled::after{content:none}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 textarea,input{font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);
   border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;width:100%;resize:vertical}
@@ -341,22 +365,51 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 </head>
 <body>
 
+<!-- Icon geometry from Lucide (lucide.dev), ISC licensed, inlined: the page
+     ships as one file with no network and no runtime dependencies. -->
+<svg id="icons" aria-hidden="true" hidden>
+  <symbol id="i-rendered" viewBox="0 0 24 24">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+    <path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+  </symbol>
+  <symbol id="i-source" viewBox="0 0 24 24">
+    <path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>
+  </symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24">
+    <path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10"/>
+  </symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24">
+    <path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H14"/>
+  </symbol>
+  <symbol id="i-open" viewBox="0 0 24 24">
+    <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6A2 2 0 0 1 18.46 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+  </symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24">
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+  </symbol>
+  <symbol id="i-save" viewBox="0 0 24 24">
+    <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/>
+    <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>
+  </symbol>
+</svg>
+
 <header id="bar">
   <div class="brand">red<em>line</em></div>
   <div class="sep"></div>
   <div id="fileMeta"><span class="dot" id="dirtyDot"></span><span id="fileName">no file</span></div>
   <div class="spacer"></div>
   <div class="seg" id="views">
-    <button data-view="rendered" class="on">Rendered</button>
-    <button data-view="source">Source</button>
+    <button class="icon on" data-view="rendered" data-label="Rendered" aria-label="Rendered"><svg><use href="#i-rendered"/></svg></button>
+    <button class="icon" data-view="source" data-label="Source" aria-label="Source"><svg><use href="#i-source"/></svg></button>
   </div>
   <div class="sep"></div>
-  <button class="ghost" id="btnUndo" title="Undo (⌘Z)" aria-label="Undo">&#8630;</button>
-  <button class="ghost" id="btnRedo" title="Redo (⇧⌘Z)" aria-label="Redo">&#8631;</button>
+  <button class="icon ghost" id="btnUndo" data-label="Undo ⌘Z" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+  <button class="icon ghost" id="btnRedo" data-label="Redo ⇧⌘Z" aria-label="Redo"><svg><use href="#i-redo"/></svg></button>
   <div class="sep"></div>
-  <button id="btnOpen">Open</button>
-  <button id="btnCopy">Copy</button>
-  <button id="btnSave" class="primary" title="Save (⌘S)">Save</button>
+  <button class="icon" id="btnOpen" data-label="Open" aria-label="Open"><svg><use href="#i-open"/></svg></button>
+  <button class="icon" id="btnCopy" data-label="Copy markdown" aria-label="Copy"><svg><use href="#i-copy"/></svg></button>
+  <button class="icon primary" id="btnSave" data-label="Save ⌘S" aria-label="Save"><svg><use href="#i-save"/></svg></button>
 </header>
 
 <main>

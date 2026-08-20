@@ -227,6 +227,7 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 #doc.rendered li.marker-del{background:linear-gradient(90deg,var(--del-bg),transparent 42%);
   border-radius:3px}
 #doc.rendered li.marker-ins::before,#doc.rendered li.marker-del::before,
+#doc.rendered li.marker-sub::before,
 #doc.rendered h1.marker-ins::before,#doc.rendered h2.marker-ins::before,
 #doc.rendered h3.marker-ins::before,#doc.rendered h1.marker-sub::before,
 #doc.rendered h2.marker-sub::before,#doc.rendered h3.marker-sub::before,

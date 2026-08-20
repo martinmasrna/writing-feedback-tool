@@ -181,11 +181,18 @@ export function buildRendered(source) {
     }
   }
 
-  /** Which tracked change, if any, is this block's marker caught up in? */
+  /**
+   * Which tracked change, if any, is this block's marker caught up in?
+   *
+   * A substitution puts both halves on screen, and `pair` marks them. That is a
+   * marker being *replaced*, not struck out: a bullet becoming a heading is not
+   * a deletion and must not wear the same red ✕ as one.
+   */
   function markerState(block) {
     if (block.markerStart === undefined) return null;
     const hit = visible.spans.find((s) => block.markerStart >= s.start && block.markerStart < s.end);
-    return hit ? hit.kind : null;
+    if (!hit) return null;
+    return hit.pair ? 'sub' : hit.kind;
   }
 
   let stack = [];

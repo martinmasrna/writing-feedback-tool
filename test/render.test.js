@@ -185,6 +185,15 @@ test('a marker mid-change carries the class that tints it', () => {
   assert.equal(struck.host.querySelector('li.marker-del') !== null, true);
 });
 
+test('a marker being replaced is not tinted as a deletion', () => {
+  // A bullet becoming a heading is a conversion, and wearing the same red ✕ as
+  // a bullet that is genuinely being removed says the opposite of what happened.
+  assert.ok(render('{~~## ~>- ~~}Title\n').host.querySelector('li.marker-sub'));
+  assert.ok(render('{~~- ~>1. ~~}Item\n').host.querySelector('li.marker-sub'));
+  assert.ok(render('{~~## ~># ~~}Title\n').host.querySelector('h1.marker-sub'));
+  assert.equal(render('{~~## ~>- ~~}Title\n').host.querySelector('.marker-del'), null);
+});
+
 test('headings render at their level', () => {
   assert.equal(render('# One\n').host.querySelector('h1') !== null, true);
   assert.equal(render('### Three\n').host.querySelector('h3') !== null, true);

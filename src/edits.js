@@ -33,6 +33,26 @@ const splice = (text, a, b, ins) => text.slice(0, a) + ins + text.slice(b);
  */
 const oneKindOfNewline = (s) => (s || '').replace(/\r\n?/g, '\n');
 
+/**
+ * One character back, and one character forward — counted in code points, not
+ * in the units JavaScript stores them in.
+ *
+ * An emoji is two units. Deleting one of them leaves a lone surrogate in the
+ * document: invalid UTF-16, which shows as a replacement character and, once
+ * the file is written out, *is* one. The emoji does not come back.
+ */
+const isHigh = (c) => c >= 0xd800 && c <= 0xdbff;
+const isLow = (c) => c >= 0xdc00 && c <= 0xdfff;
+
+function backOne(text, p) {
+  return p >= 2 && isLow(text.charCodeAt(p - 1)) && isHigh(text.charCodeAt(p - 2)) ? p - 2 : p - 1;
+}
+function forwardOne(text, p) {
+  return p + 1 < text.length && isHigh(text.charCodeAt(p)) && isLow(text.charCodeAt(p + 1)) ? p + 2 : p + 1;
+}
+/** Is this body a single character — as a reader counts them, not as JS does? */
+const onePoint = (s) => [...s].length < 2;
+
 /* -------------------------------------------------------------------------- */
 /* Striking text out, merging with an adjacent deletion so that holding        */
 /* backspace grows one annotation instead of making a chain of them.           */
@@ -141,36 +161,39 @@ export function deleteBackward(text, p) {
 
   // Erasing text you typed yourself is a plain delete, not a tracked one.
   if (region.kind === 'insBody' && p > bodyStart(a)) {
-    return a.a.length <= 1
+    return onePoint(a.a)
       ? { text: splice(text, a.start, a.end, ''), caret: at(a.start), coalesce: 'del' }
-      : { text: splice(text, p - 1, p, ''), caret: at(p - 1), coalesce: 'del' };
+      : { text: splice(text, backOne(text, p), p, ''), caret: at(backOne(text, p)), coalesce: 'del' };
   }
   if (region.kind === 'subNew' && p > newStart(a)) {
     // Emptying the replacement turns the substitution back into a deletion.
-    return a.b.length <= 1
+    return onePoint(a.b)
       ? { text: splice(text, a.start, a.end, `{--${a.a}--}` + (a.ctok ? `{>>${a.ctok.a}<<}` : '')), caret: at(a.start), coalesce: 'del' }
-      : { text: splice(text, p - 1, p, ''), caret: at(p - 1), coalesce: 'del' };
+      : { text: splice(text, backOne(text, p), p, ''), caret: at(backOne(text, p)), coalesce: 'del' };
   }
 
   const prev = annEndingAt(anns, p);
   if (prev) {
     if (prev.type === 'ins' && !prev.ctok) {
-      if (prev.a.length <= 1) return { text: splice(text, prev.start, prev.end, ''), caret: at(prev.start), coalesce: 'del' };
+      if (onePoint(prev.a)) return { text: splice(text, prev.start, prev.end, ''), caret: at(prev.start), coalesce: 'del' };
       const end = bodyEnd(prev);
-      return { text: splice(text, end - 1, end, ''), caret: at(end - 1), coalesce: 'del' };
+      const from = backOne(text, end);
+      return { text: splice(text, from, end, ''), caret: at(from), coalesce: 'del' };
     }
     if (prev.type === 'sub' && prev.b.length > 0 && !prev.ctok) {
-      if (prev.b.length <= 1) return { text: splice(text, prev.start, prev.end, `{--${prev.a}--}`), caret: at(prev.start), coalesce: 'del' };
+      if (onePoint(prev.b)) return { text: splice(text, prev.start, prev.end, `{--${prev.a}--}`), caret: at(prev.start), coalesce: 'del' };
       const end = newEnd(prev);
-      return { text: splice(text, end - 1, end, ''), caret: at(end - 1), coalesce: 'del' };
+      const from = backOne(text, end);
+      return { text: splice(text, from, end, ''), caret: at(from), coalesce: 'del' };
     }
     return { caret: at(prev.start) }; // step over finished markup
   }
 
-  const before = regionAt(anns, p - 1);
+  const from = backOne(text, p);
+  const before = regionAt(anns, from);
   if (before.kind !== 'plain') return before.a ? { blocked: before.a } : null;
 
-  return { ...strikeBefore(text, anns, p - 1, p), coalesce: 'del' };
+  return { ...strikeBefore(text, anns, from, p), coalesce: 'del' };
 }
 
 /** Forward delete at a collapsed caret. */
@@ -181,30 +204,31 @@ export function deleteForward(text, p) {
   const a = region.a;
 
   if (region.kind === 'insBody' && p < bodyEnd(a)) {
-    return a.a.length <= 1
+    return onePoint(a.a)
       ? { text: splice(text, a.start, a.end, ''), caret: at(a.start), coalesce: 'delf' }
-      : { text: splice(text, p, p + 1, ''), caret: at(p), coalesce: 'delf' };
+      : { text: splice(text, p, forwardOne(text, p), ''), caret: at(p), coalesce: 'delf' };
   }
   if (region.kind === 'subNew' && p < newEnd(a)) {
-    return a.b.length <= 1
+    return onePoint(a.b)
       ? { text: splice(text, a.start, a.end, `{--${a.a}--}` + (a.ctok ? `{>>${a.ctok.a}<<}` : '')), caret: at(a.start), coalesce: 'delf' }
-      : { text: splice(text, p, p + 1, ''), caret: at(p), coalesce: 'delf' };
+      : { text: splice(text, p, forwardOne(text, p), ''), caret: at(p), coalesce: 'delf' };
   }
 
   const next = annStartingAt(anns, p);
   if (next) {
     if (next.type === 'ins') {
-      if (next.a.length <= 1) return { text: splice(text, next.start, next.end, ''), caret: at(next.start), coalesce: 'delf' };
+      if (onePoint(next.a)) return { text: splice(text, next.start, next.end, ''), caret: at(next.start), coalesce: 'delf' };
       const start = bodyStart(next);
-      return { text: splice(text, start, start + 1, ''), caret: at(p), coalesce: 'delf' };
+      return { text: splice(text, start, forwardOne(text, start), ''), caret: at(p), coalesce: 'delf' };
     }
     return { caret: at(next.end) }; // step over finished markup
   }
 
-  const after = regionAt(anns, p + 1);
+  const to = forwardOne(text, p);
+  const after = regionAt(anns, to);
   if (after.kind === 'atomic') return { blocked: after.a };
 
-  return { ...strikeAfter(text, anns, p, p + 1), coalesce: 'delf' };
+  return { ...strikeAfter(text, anns, p, to), coalesce: 'delf' };
 }
 
 /* --- Word and line granularity, clamped to the surrounding plain run ------- */

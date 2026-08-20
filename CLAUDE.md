@@ -24,6 +24,12 @@ This is not a refactor for tidiness. Parsing the two grammars together is what m
 
 **The browser never mutates the document.** `#doc` is `contenteditable`, but every `beforeinput` is cancelled and translated into an operation on the markdown string, which is then re-rendered from scratch. Anything that must not be edited — struck text, comment chips, unsupported blocks — is `contenteditable="false"` so the caret cannot get inside markup. Never let a browser-native edit through.
 
+Every `inputType` the switch in `input.js` does not name is therefore a keystroke that silently does nothing. `deleteByCut` went unnamed for a while, so ⌘X put the selection on the clipboard and left it in the document.
+
+**Anything about where the caret *is* must be asked in visible coordinates.** Source offsets lie whenever markup is in the way, and they lie quietly. A block's source range runs from its first drawn character to its last, so a block that opens inside an annotation begins past the opening delimiter and a caret in front of that delimiter falls outside every block. `toSource` on the end of a run answers with the first drawn character *after* it, which may be several delimiters away. Distance measured in source characters means nothing at all: the end of one line and the start of the next can be six characters apart in the source and adjacent on screen.
+
+Every one of these was a real bug. `blockFor` resolves a caret's block on screen — reading it in the source sent structural commands to the last block in the document. `markerBefore` and `markerOf` map marker ranges through `toSourceRange`, because slicing to a mapped `contentStart` swallowed a `{--`. `markerInsertPoint` finds the caret's line on screen, because looking back through raw text for a newline finds one *inside* an insertion and nests markup there. `visible.js` exports `toVisibleOffset` and `toSourceRange` for exactly this. When you are about to compare two source offsets, stop and ask whether you mean the same place on screen.
+
 ## The rendering pipeline
 
 ```
@@ -48,7 +54,8 @@ up work rather than answering a question. Pull only what the task needs.
 | bold, italic, code, links | `src/inline.js` |
 | adding or removing a bullet, heading level, emphasis | `src/structure.js` |
 | what a keystroke does | `src/edits.js` — pure; the merge rules live here |
-| caret lands in the wrong place after an edit | `src/dom/offsets.js`, then the two invariants above |
+| caret lands in the wrong place after an edit | `src/dom/offsets.js`, then the visible-coordinates invariant above |
+| which block is the caret in | `blockFor()` in `src/blocks.js` — never compare source offsets by hand |
 | a keystroke does nothing or the wrong thing | `src/input.js` — the `beforeinput` switch |
 | undo granularity, dirty state, history | `src/state.js` |
 | what the annotated file looks like on screen | `src/dom/render.js` |
@@ -65,7 +72,9 @@ up work rather than answering a question. Pull only what the task needs.
 
 If an edit or a keystroke produces no visible change, that is a bug even when the source is correct.
 
-**Caret movement across markup is ours to drive, not the browser's.** Struck text and comment chips are `contenteditable="false"`, and Chrome will neither put the caret inside them *nor step over them* — an arrow press beside a deletion does nothing at all, and the next keystroke lands wherever the caret was stuck. `stepCaret()` in `edits.js` moves it: plain text one character at a time, a run of finished markup skipped whole in a single press. Any new unedittable region must be reachable past, or it becomes a wall.
+**Caret movement across markup is ours to drive, not the browser's.** Struck text and comment chips are `contenteditable="false"`, and Chrome will neither put the caret inside them *nor step over them* — an arrow press beside a deletion does nothing at all, and the next keystroke lands wherever the caret was stuck. `stepCaret()` in `edits.js` moves it: plain text one character at a time, a run of finished markup skipped whole in a single press. Any new unedittable region must be reachable past, or it becomes a wall — and must have somewhere to stand on the far side of it, which is what the landing spots in `render-rendered.js` are. Without one, deleting a word off the end of a paragraph and typing the replacement put it in the paragraph below.
+
+**The caret we hold is better than the caret the screen gives back.** Rendering writes the caret into the DOM, which fires `selectionchange`, which reads it straight back. That round trip is lossy — the end of an insertion body and the position past its closing delimiter are the same place on screen, and a `**` or a block separator is not drawn at all — and it happens after every render, so the loss compounds into the next keystroke. `readBack()` in `dom/offsets.js` answers "would this offset come back as that one", and `app.js` keeps what it holds when the answer is yes. Trusting the reading instead changed the resulting document in 427 of 500 random editing sessions.
 
 **Edits that undo each other must cancel.** Deleting a word and typing it back leaves no trace, not `{--word--}{++word++}`; `normalize()` in `edits.js` runs on every change.
 
@@ -88,11 +97,15 @@ The harness now refuses a caret inside markup and skips selections buried in it,
 
 **Every editing rule gets a test.** `npm test` runs Node's own test runner. The merge rules especially — holding ⌫ growing one deletion instead of a chain, a typing burst producing one insertion, an emptied substitution collapsing back to a deletion — are subtle, easy to regress, and cheap to cover. A browser check is not a substitute; it is the thing you do *after*.
 
-**Two of the layers check things a string comparison cannot.**
+**Some of the layers check things a string comparison cannot.**
 
 `mirror()` in `test/harness.js` runs the real editor and a plain text one — a string, a caret, textbook semantics, written from scratch — over the same keystrokes, and asserts after each that `ed.accepted` equals what a normal editor would have produced. That turns "does this behave like a text editor" from a judgement call into a failing test; it is what caught backspace leaving a stray `-` behind when the bullet it removed was part of a change still in flight. Some keystrokes have no plain-text answer — Enter, arrows, word deletes clamped by markup — and the mirror records them as skipped rather than inventing one. `test/reference.test.js` names the cases; the fuzz runs the same machinery over ten thousand random keystrokes.
 
 `test/render.test.js` draws the document into jsdom and asserts on the nodes. Every text node must hold exactly the visible text at the offset it claims, no delimiter may reach the screen, every character block structure calls text must be on it, and a caret offset must survive a round trip through `sourceToPoint`/`pointToSource`. jsdom does no layout, so anything positional still needs a browser.
+
+`domSession()` in `test/dom.js` puts the renderer and the offset index into the editing loop exactly as `app.js` does, so the same keystrokes can be run twice — once through the editor alone, once through the screen — and compared. That is the only way to see a caret degraded by being drawn.
+
+`test/structure-fuzz.test.js` runs the structural commands *inside* sessions rather than one call at a time from a clean document. They had unit tests and nothing else, and 358 of the first 800 sessions broke something.
 
 **`dist/index.html` is generated. Never edit it by hand.** Run `npm run build`. It is committed on purpose: the product is a file you double-click from disk, so a clone has to be immediately usable without a build.
 

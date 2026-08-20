@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { render, screenText, mappedNodes, isVirtual, installDom } from './dom.js';
 import { editor } from './harness.js';
 import { toVisibleOffset } from '../src/visible.js';
+import { parseBlocks } from '../src/blocks.js';
 
 installDom();
 
@@ -187,6 +188,44 @@ test('a marker mid-change carries the class that tints it', () => {
 test('headings render at their level', () => {
   assert.equal(render('# One\n').host.querySelector('h1') !== null, true);
   assert.equal(render('### Three\n').host.querySelector('h3') !== null, true);
+});
+
+/**
+ * A marker being changed has both halves on screen, and the block has to pick
+ * one. It picks the half it is arriving at — and neither half is drawn as
+ * content. Read naively, a demotion drew an `<h2>` reading "# Title", and
+ * making a bullet into a heading drew a list item reading "## Item": the
+ * `- ## Title` shape that is never what anyone meant, on screen even though the
+ * source was right.
+ */
+const markerChanges = [
+  ['a demoted heading', '{~~## ~># ~~}Title\n', 'h1', 'Title'],
+  ['a promoted heading', '{~~# ~>### ~~}Title\n', 'h3', 'Title'],
+  ['a bullet becoming a heading', '{~~- ~>## ~~}Item\n', 'h2', 'Item'],
+  ['a heading becoming a bullet', '{~~## ~>- ~~}Title\n', 'li', 'Title'],
+  ['a bullet becoming numbered', '{~~- ~>1. ~~}Item\n', 'ol', 'Item'],
+];
+
+for (const [name, source, tag, text] of markerChanges) {
+  test(`${name} renders as what it is becoming`, () => {
+    const r = render(source);
+    const el = r.host.querySelector(tag);
+    assert.ok(el, `expected a <${tag}>, got ${r.host.innerHTML}`);
+    assert.equal(screenText(r.host), text, 'and neither marker leaks in as prose');
+  });
+}
+
+test('a marker still on its way out keeps the block it is leaving', () => {
+  // Nothing has arrived to replace it, so until the change is accepted the
+  // block is still a heading — struck, but a heading.
+  assert.ok(render('{--## --}Title\n').host.querySelector('h2'));
+  assert.ok(render('{++## ++}Title\n').host.querySelector('h2'));
+});
+
+test('the screen and the editing model agree on a heading mid-change', () => {
+  const source = '{~~## ~># ~~}Title\n';
+  assert.ok(render(source).host.querySelector('h1'), 'drawn as h1');
+  assert.equal(parseBlocks(source)[0].level, 1, 'and the model calls it level 1');
 });
 
 /* --- chrome the caret must not be able to address -------------------------- */

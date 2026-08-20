@@ -140,6 +140,49 @@ function classify(line) {
   return { type: 'paragraph', contentStart: base, vis };
 }
 
+/** A marker and nothing else — what both halves of a marker change look like. */
+const MARKER_ONLY = /^[ \t]*(?:[-*+]|\d{1,9}[.)]|#{1,6}|>)[ \t]*$/;
+
+/**
+ * The visible length of a marker at the head of this line that is being struck
+ * out in favour of another, or 0.
+ *
+ * Both halves of a change are on screen, so demoting a heading shows `## # `
+ * and turning a bullet into one shows `- ## `. Read naively the line still
+ * begins with the marker that is going away.
+ */
+function dyingMarker(line, spans) {
+  if (!spans) return 0;
+  const del = spans.find((s) => s.kind === 'del' && s.start === line.start && s.end > s.start);
+  if (!del) return 0;
+  const ins = spans.find((s) => s.kind === 'ins' && s.annStart === del.annStart && s.start === del.end);
+  if (!ins) return 0;
+  const width = del.end - del.start;
+  return MARKER_ONLY.test(line.text.slice(0, width)) ? width : 0;
+}
+
+/**
+ * Classify a line, reading a marker mid-change as one marker.
+ *
+ * Without this the block keeps the type it is leaving and the marker it is
+ * arriving at renders as prose: demoting `## Title` drew an `<h2>` reading
+ * "# Title", and making a bullet into a heading drew a list item reading
+ * "## Item" — the `- ## Title` shape that is never what anybody meant, showing
+ * on screen even though the source was right.
+ *
+ * The half that is arriving decides what the block is; the pair together is the
+ * marker, so neither half is drawn as content.
+ */
+function classifyLine(line, spans) {
+  const dying = dyingMarker(line, spans);
+  if (dying) {
+    const tail = { start: line.start + dying, end: line.end, text: line.text.slice(dying) };
+    const info = classify(tail);
+    if (info.markerStart === tail.start) return { ...info, markerStart: line.start, vis: line.text };
+  }
+  return classify(line);
+}
+
 /**
  * Parse the document into blocks.
  *
@@ -163,7 +206,7 @@ export function parseVisibleBlocks(visibleText, spans) {
       classified.push({ line, info: { type: 'unsupported', reason: 'code', vis } });
       continue;
     }
-    classified.push({ line, info: classify(line) });
+    classified.push({ line, info: classifyLine(line, spans) });
   }
 
   // A delimiter row turns its neighbours into one unsupported table block.

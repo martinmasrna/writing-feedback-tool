@@ -103,6 +103,15 @@ for (const doc of PLAIN_DOCS) {
 
 /* --- the specific things that went wrong ---------------------------------- */
 
+test('a code block survives being commented on', () => {
+  // Comment is the one deliberate annotation allowed to span an island, so the
+  // island had better still be drawn afterwards.
+  const doc = 'Before\n\n```\ncode here\n```\n\nAfter\n';
+  const r = render(`{==${doc.slice(0, doc.indexOf('After') + 5)}==}{>>why<<}${doc.slice(doc.indexOf('After') + 5)}`);
+  assert.equal(r.host.querySelectorAll('pre.island').length, 1);
+  assert.ok(screenText(r.host).includes('code here'));
+});
+
 test('a code block survives a selection dragged across it', () => {
   // The selection is refused rather than swallowing the fence into a
   // substitution — which once left the text in the source and the island gone

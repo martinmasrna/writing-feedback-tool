@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { editor, assertReversible } from './harness.js';
+import { annotate } from '../src/editor.js';
+import { transform } from '../src/criticmarkup.js';
 
 test('the harness drives the real editor', () => {
   const ed = editor('Hello world.\n').caretAfter('Hello').type(' there');
@@ -143,4 +145,30 @@ test('editing either side of a code block still works', () => {
   const ed = editor(original).select('Before').type('Above');
   assert.equal(ed.accepted, 'Above the code.\n\n```js\nconst x = 1;\n```\n\nAfter the code.\n');
   assertReversible(assert, ed);
+});
+
+/* --- the toolbar's deliberate annotations --------------------------------- */
+
+const FENCED = 'Before the fence.\n\n```js\nconst x = 1;\n```\n\nAfter the fence.\n';
+const ACROSS = { start: 0, end: FENCED.indexOf('After') + 5 };
+
+test('Replace and Delete refuse a selection that takes in a code block', () => {
+  // The third door into the same bug: typing and the structural commands were
+  // guarded, this one was not, and a substitution swallowed the fence whole.
+  for (const kind of ['sub', 'del']) {
+    assert.deepEqual(annotate(FENCED, ACROSS, kind, 'replacement', 'why'),
+      { blocked: { kind: 'unsupported', reason: 'code' } }, kind);
+  }
+});
+
+test('Comment is allowed there, because it takes nothing away', () => {
+  const r = annotate(FENCED, ACROSS, 'hl', '', 'worth discussing');
+  assert.ok(r && r.text && !r.blocked);
+  assert.equal(transform(r.text, 'rejected'), FENCED);
+  assert.ok(transform(r.text, 'accepted').includes('```js'), 'the fence survives being accepted');
+});
+
+test('an ordinary selection is annotated as before', () => {
+  const r = annotate('Alpha beta gamma.\n', { start: 6, end: 10 }, 'del', '', 'redundant');
+  assert.equal(r.text, 'Alpha {--beta--}{>>redundant<<} gamma.\n');
 });

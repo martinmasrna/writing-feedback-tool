@@ -177,6 +177,30 @@ export function applyAction(state, action) {
 }
 
 /**
+ * Annotate a selection deliberately — the floating toolbar's Replace, Delete
+ * and Comment.
+ *
+ * `edits.annotate` refuses to overlap another annotation but knows nothing
+ * about block structure, and this is the third door into the same bug: a
+ * selection dragged from above a code fence to below it went straight into a
+ * substitution. The text survived in the source, but the island vanished from
+ * the screen and the document collapsed around it. Typing and the structural
+ * commands were both guarded; this way in was not.
+ *
+ * Only the destructive two are refused. A highlight keeps every character where
+ * it is — the island still draws, and accepting or rejecting leaves the fence
+ * untouched — so commenting on a code block stays possible, which in a review
+ * tool is the whole point of having one.
+ */
+export function annotate(text, sel, kind, replacement, reason) {
+  if (kind === 'sub' || kind === 'del') {
+    const island = crossesUnsupported(text, sel);
+    if (island) return { blocked: { kind: 'unsupported', reason: island.reason } };
+  }
+  return edits.annotate(text, sel, kind, replacement, reason);
+}
+
+/**
  * Where the caret goes on an arrow press, ignoring what is on screen.
  *
  * The rendered view has a second constraint this cannot see — some source

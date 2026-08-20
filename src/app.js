@@ -11,6 +11,7 @@ import { buildDocument } from './dom/render.js';
 import { buildRendered } from './dom/render-rendered.js';
 import { parseBlocks, blockFor } from './blocks.js';
 import * as structure from './structure.js';
+import { annotate } from './editor.js';
 import { createOffsetIndex } from './dom/offsets.js';
 import { createToast } from './ui/toast.js';
 import { createHeader } from './ui/header.js';
@@ -72,7 +73,7 @@ export function createApp() {
     onAnnotate: (spec, message) => {
       if (!spec) { toast(message); return; }
       store.clearActive();
-      const result = edits.annotate(store.state.text, spec.selection, spec.kind, spec.text, spec.reason);
+      const result = annotate(store.state.text, spec.selection, spec.kind, spec.text, spec.reason);
       applyResult(result);
       if (result && !result.blocked && !spec.reason.trim()) toast('Annotation saved without a reason.');
       doc.focus();
@@ -208,7 +209,7 @@ export function createApp() {
       toast('Select some text first.');
       return;
     }
-    const probe = edits.annotate(store.state.text, pendingSelection, kind, '', '');
+    const probe = annotate(store.state.text, pendingSelection, kind, '', '');
     if (probe && probe.blocked) { refuse(probe.blocked); return; }
     toolbar.hide();
     const rect = window.getSelection().rangeCount

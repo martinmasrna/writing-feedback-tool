@@ -250,16 +250,19 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   text-decoration:line-through;text-decoration-color:var(--del-ln)}
 #doc.rendered .r-hl{background:var(--com-bg);border-radius:3px;
   box-shadow:inset 0 -1px 0 var(--com-ln)}
-/* A reason is a footnote: a mark on the line, the text on hover. Filled where
-   there is a reason, hollow where one is still owed. */
+/* A reason is a footnote: a mark on the line, the text on hover. Hue says what
+   the mark is — a reason, so the comment colour — and fill says whether it is
+   there yet. Hollow was red once, which read as a third kind of deletion:
+   red means struck text everywhere else on the page, and a mark cannot carry
+   both meanings. Missing reasons are counted in the header instead. */
 #doc.rendered .r-com,#doc.rendered .r-noreason{
   display:inline-block;position:relative;width:7px;height:7px;border-radius:50%;
   margin:0 .1em 0 .22em;vertical-align:.42em;
   -webkit-user-select:none;user-select:none;cursor:pointer;
 }
 #doc.rendered .r-com{background:var(--com)}
-#doc.rendered .r-noreason{box-shadow:inset 0 0 0 1.5px var(--del)}
-#doc.rendered .r-noreason:hover{background:var(--del-bg)}
+#doc.rendered .r-noreason{box-shadow:inset 0 0 0 1.5px var(--com)}
+#doc.rendered .r-noreason:hover{background:var(--com-bg)}
 #doc.rendered .r-com:hover{box-shadow:0 0 0 2px var(--com-ln)}
 
 /* A dot is too small to aim at, so the hit area grows — upward into the empty

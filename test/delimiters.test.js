@@ -20,6 +20,7 @@ import { editor } from './harness.js';
 import { createStore } from '../src/state.js';
 import { applyAction } from '../src/editor.js';
 import { preservesOriginal } from '../src/edits.js';
+import { annotate } from '../src/editor.js';
 import { transform } from '../src/criticmarkup.js';
 
 test('a stray closing delimiter inside a deletion is refused', () => {
@@ -66,15 +67,34 @@ test('preservesOriginal is what the check asks', () => {
     'the deletion ends at the stray delimiter, stranding the rest');
 });
 
-test('the store refuses an unsafe result rather than applying it', () => {
+test('the edit engine refuses before it writes markup it cannot read back', () => {
   const doc = 'Some --} text here.\n';
+  const result = applyAction({ text: doc, caret: { start: 0, end: doc.length - 1 }, view: 'rendered' },
+    { type: 'deleteBackward' });
+  assert.deepEqual(result, { blocked: { kind: 'delimiter' } });
+});
+
+test('and the store is the backstop for what that cannot see', () => {
+  // A stray opener earlier in the file makes perfectly good markup go wrong
+  // *after* it is spliced in, which nothing local to the edit can tell.
+  const doc = 'A {-- stray opener.\n\nA paragraph well below it.\n';
   const store = createStore();
   store.load(doc, 'doc.md', null);
-  store.setCaret({ start: 0, end: doc.length - 1 });
+  const at = doc.indexOf('paragraph');
+  store.setCaret({ start: at, end: at + 'paragraph'.length });
   const result = applyAction({ text: doc, caret: store.state.caret, view: 'rendered' }, { type: 'deleteBackward' });
+  assert.ok(result.text, 'the edit engine saw nothing wrong with it');
   assert.equal(store.apply(result), 'unsafe');
   assert.equal(store.state.text, doc, 'the document is untouched');
   assert.equal(store.state.undo.length, 0, 'and nothing went onto the undo stack');
+});
+
+test('an empty annotation is never written', () => {
+  // Highlighting text that opens with a closing delimiter used to produce
+  // `{====}` — an empty highlight, a stray delimiter and an orphaned comment —
+  // while leaving the text itself intact, so the store's check saw nothing.
+  const r = annotate('# T\n\n==}\n', { start: 5, end: 8 }, 'hl', '', 'why');
+  assert.deepEqual(r, { blocked: { kind: 'delimiter' } });
 });
 
 /* --- over documents built to be hostile ------------------------------------ */

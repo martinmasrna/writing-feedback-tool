@@ -17,7 +17,7 @@
 
 import {
   parse, tokenize, regionAt, annStartingAt, annEndingAt, overlapping, plainRun,
-  bodyStart, bodyEnd, newStart, newEnd, sanitize, markup, reasonMd, originalOf, transform,
+  bodyStart, bodyEnd, newStart, newEnd, sanitize, wellFormed, markup, reasonMd, originalOf, transform,
 } from './criticmarkup.js';
 
 const at = (p) => ({ start: p, end: p });
@@ -102,6 +102,7 @@ export function insert(text, sel, str) {
     const blocked = overlapping(anns, sel.start, sel.end);
     if (blocked) return { blocked };
     const old = text.slice(sel.start, sel.end);
+    if (!wellFormed(markup('sub', old, clean, ''))) return { blocked: { kind: 'delimiter' } };
     return {
       text: splice(text, sel.start, sel.end, `{~~${old}~>${clean}~~}`),
       caret: at(sel.start + 3 + old.length + 2 + clean.length),
@@ -146,6 +147,7 @@ export function deleteRange(text, sel, dir = 'back') {
   const anns = parse(text);
   const blocked = overlapping(anns, sel.start, sel.end);
   if (blocked) return { blocked };
+  if (!wellFormed(markup('del', text.slice(sel.start, sel.end), '', ''))) return { blocked: { kind: 'delimiter' } };
   const r = dir === 'fwd'
     ? strikeAfter(text, anns, sel.start, sel.end)
     : strikeBefore(text, anns, sel.start, sel.end);
@@ -328,6 +330,7 @@ export function annotate(text, sel, kind, replacement, reason) {
   if (blocked) return { blocked };
   const old = text.slice(sel.start, sel.end);
   const md = markup(kind, old, sanitize(oneKindOfNewline(replacement)), sanitize(oneKindOfNewline(reason)));
+  if (!wellFormed(md)) return { blocked: { kind: 'delimiter' } };
   return { text: splice(text, sel.start, sel.end, md), caret: at(sel.start + md.length), coalesce: null };
 }
 

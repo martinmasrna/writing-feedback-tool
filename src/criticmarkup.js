@@ -137,6 +137,22 @@ export function reasonMd(reason) {
   return r ? `{>>${r}<<}` : '';
 }
 
+/**
+ * Does this markup read back as the annotation it was written to be?
+ *
+ * A body runs to the first closing delimiter, so wrapping text that already
+ * contains one ends the annotation early and leaves the rest as prose — at
+ * worst an empty annotation, a stray delimiter and an orphaned comment. Typed
+ * text is sanitised, but the document's own text never can be: it has to come
+ * back character for character when the change is rejected.
+ *
+ * Asked of the markup rather than of the text, so it holds for every kind
+ * without a table of what closes what. Nothing but annotations may be left.
+ */
+export function wellFormed(md) {
+  return tokenize(md).every((t) => t.type !== 'plain');
+}
+
 /** Render an annotation of `kind` over `old`/`text`, with its reason attached. */
 export function markup(kind, old, text, reason) {
   const tail = reasonMd(reason);

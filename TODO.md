@@ -43,6 +43,15 @@ worth it once 1 and 2 stop finding things.
 
 ## Known gaps, unfixed
 
+- **Bulleting a line inside a wrapped paragraph splits the paragraph.** This is
+  deliberate — `structure.test.js` says "bullets operate on the caret line, not
+  the whole paragraph" — and it is right for a document where each line is its
+  own item. On prose wrapped at eighty columns, which is most hand-written
+  markdown, it is surprising: the cursor is in a paragraph, ⌘⇧8 turns one
+  *source line* into a bullet, and the rest of the sentence stays behind as a
+  separate paragraph. Worth deciding on with a real document in front of you;
+  it looks wrong in `sample.md`.
+
 - **Dragging text within the document does nothing.** The drop point is never
   read out of `beforeinput`'s `getTargetRanges()`, so the text is re-inserted
   where it was deleted from and the two cancel. It used to leave a copy behind,

@@ -86,14 +86,17 @@ export function createOffsetIndex(root) {
         const i = nodes.indexOf(node);
         return i < 0 ? null : starts[i] + offset;
       }
+      // Scan past children with no source behind them. A block can end in one
+      // — the bar a structural change is drawn as — and stopping at the first
+      // neighbour would answer "nowhere" for the position right before it.
       const kids = node.childNodes;
-      if (offset < kids.length) {
-        const t = edgeText(kids[offset], true);
+      for (let k = offset; k < kids.length; k++) {
+        const t = edgeText(kids[k], true);
         const i = t ? nodes.indexOf(t) : -1;
         if (i >= 0) return starts[i];
       }
-      if (offset > 0) {
-        const t = edgeText(kids[offset - 1], false);
+      for (let k = offset - 1; k >= 0; k--) {
+        const t = edgeText(kids[k], false);
         const i = t ? nodes.indexOf(t) : -1;
         if (i >= 0) return starts[i] + t.nodeValue.length;
       }

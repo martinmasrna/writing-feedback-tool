@@ -285,6 +285,7 @@ test('an unexplained edit carries the way to explain it, out of the text', () =>
   const r = render('An edit {--with--} no reason.\n');
   const pill = r.host.querySelector('.r-del .add-reason');
   assert.ok(pill, 'the change holds it, so hovering the change reveals it');
+  assert.equal(pill.textContent, 'Add a reason', 'and it says what it is for');
   assert.equal(pill.dataset.ann, '8', 'and it names the annotation by source offset');
   assert.equal(isVirtual(pill), true, 'the caret cannot address it');
   assert.equal(screenText(r.host), 'An edit with no reason.', 'nor does it reach the text');
@@ -298,6 +299,29 @@ test('a comment with no edit under it draws nothing at all', () => {
   assert.equal(screenText(r.host), 'A line of prose.', 'the prose is all there is');
   assert.equal(r.host.querySelector('[data-reason]'), null, 'nothing stands in for it');
   assert.equal(r.host.querySelector('[data-virtual]'), null);
+});
+
+test('a structural change hangs its reason on the bar in the margin', () => {
+  const owed = render('{++- ++}A bullet nobody explained\n');
+  const bar = owed.host.querySelector('li .marker-bar');
+  assert.ok(bar, 'the bar is a node, so it can be pointed at');
+  assert.equal(isVirtual(bar), true, 'and the caret cannot address it');
+  assert.equal(bar.classList.contains('unexplained'), true);
+  assert.ok(bar.querySelector('.add-reason'), 'hovering it offers the way to explain it');
+  assert.equal(screenText(owed.host), 'A bullet nobody explained', 'none of it reaches the text');
+
+  const given = render('{++- ++}{>>it reads better as a list<<}A bullet with a reason\n');
+  const explained = given.host.querySelector('li .marker-bar');
+  assert.equal(explained.dataset.reason, 'it reads better as a list');
+  assert.equal(explained.querySelector('.add-reason'), null);
+});
+
+test('the caret still resolves at the end of a block that ends in a bar', () => {
+  const r = render('{++- ++}Item\n');
+  const li = r.host.querySelector('li');
+  assert.ok(li.lastChild.classList.contains('marker-bar'), 'the bar is the last thing in the block');
+  const back = r.index.pointToSource(li, li.childNodes.length);
+  assert.equal(typeof back, 'number', 'and a position past it still maps to source');
 });
 
 test('a rule and an island label are chrome', () => {

@@ -25,9 +25,10 @@ import { parse } from '../criticmarkup.js';
 import { parseVisibleBlocks } from '../blocks.js';
 import { parseInline } from '../inline.js';
 
-const el = (tag, className) => {
+const el = (tag, className, text) => {
   const n = document.createElement(tag);
   if (className) n.className = className;
+  if (text !== undefined) n.textContent = text;
   return n;
 };
 const chrome = (node) => {
@@ -234,7 +235,26 @@ export function buildRendered(source) {
     if (!change) return;
     node.classList.add(`marker-${change.kind}`);
     node.dataset.start = String(change.annStart);
-    markReason(node, change.annStart);
+  }
+
+  /**
+   * The bar in the margin, as a node rather than a pseudo-element.
+   *
+   * A structural change has no text of its own to hover — the change is a
+   * bullet or a heading level, and the prose beside it is untouched. The bar
+   * is the only thing on screen that stands for it, so it has to be the thing
+   * you point at: it carries the reason on hover and the pill when one is
+   * still owed, exactly as an inline change does.
+   *
+   * It reaches wider than the 2px it draws, because 2px is not a target, and
+   * it goes in last so that no caret position resolves against it.
+   */
+  function markerHandle(node, block) {
+    const change = markerChange(block);
+    if (!change) return;
+    const bar = chrome(el('span', `marker-bar marker-${change.kind}`));
+    markReason(bar, change.annStart, true);
+    node.append(bar);
   }
 
   let stack = [];
@@ -274,6 +294,7 @@ export function buildRendered(source) {
       tintMarker(li, block);
       li.dataset.block = String(toSource(visible, block.start));
       renderContent(li, block.contentStart, block.contentEnd);
+      markerHandle(li, block);
       stack[depth].node.append(li);
       continue;
     }
@@ -308,6 +329,7 @@ export function buildRendered(source) {
     }
     node.dataset.block = String(toSource(visible, block.start));
     renderContent(node, block.contentStart, block.contentEnd);
+    if (block.type === 'heading') markerHandle(node, block);
     frag.append(node);
   }
 

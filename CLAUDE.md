@@ -20,7 +20,7 @@ Break any one and the editor corrupts documents. Read these before touching `src
 
 This is not a refactor for tidiness. Parsing the two grammars together is what made `{++\n- ++}` leak `{++` onto the screen, broke `*italic*` when an edit landed inside it, and broke `` `code` `` the same way. One delimiter in the middle of a construct the markdown parser is trying to match breaks the match. Resolve first, always.
 
-**Every text node the renderer creates carries a source mapping.** The source view can map DOM to source with a running sum because it renders every character; the rendered view drops `**` and `#` from the screen, so it emits explicit mappings instead (`dom/offsets.js` takes either). Anything on screen *not* backed by source text — bullets, island labels, rules — must carry `data-virtual` so the caret cannot address it.
+**Every text node the renderer creates carries a source mapping.** The source view can map DOM to source with a running sum because it renders every character; the rendered view drops `**` and `#` from the screen, so it emits explicit mappings instead (`dom/offsets.js` takes either). Anything on screen *not* backed by source text — bullets, island labels, rules, the bar a structural change is drawn as — must carry `data-virtual` so the caret cannot address it.
 
 **The browser never mutates the document.** `#doc` is `contenteditable`, but every `beforeinput` is cancelled and translated into an operation on the markdown string, which is then re-rendered from scratch. Anything that must not be edited — struck text, unsupported blocks, the source view's delimiters — is `contenteditable="false"` so the caret cannot get inside markup. Never let a browser-native edit through.
 

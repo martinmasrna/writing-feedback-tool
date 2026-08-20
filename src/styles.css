@@ -219,20 +219,20 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   border-radius:3px}
 #doc.rendered li.marker-del{background:linear-gradient(90deg,var(--del-bg),transparent 42%);
   border-radius:3px}
-#doc.rendered li.marker-ins::before,#doc.rendered li.marker-del::before,
-#doc.rendered li.marker-sub::before,
-#doc.rendered h1.marker-ins::before,#doc.rendered h2.marker-ins::before,
-#doc.rendered h3.marker-ins::before,#doc.rendered h1.marker-sub::before,
-#doc.rendered h2.marker-sub::before,#doc.rendered h3.marker-sub::before,
-#doc.rendered h1.marker-del::before,#doc.rendered h2.marker-del::before,
-#doc.rendered h3.marker-del::before{
-  content:'';position:absolute;left:-1.5em;top:.15em;bottom:.15em;width:2px;border-radius:1px;
+/* The bar a structural change is drawn as, and the thing you point at to
+   explain it: it reaches across the margin, though it draws only 2px of it. */
+#doc.rendered .marker-bar{
+  position:absolute;left:-1.75em;top:.15em;bottom:.15em;width:1.5em;cursor:default;
 }
-#doc.rendered .marker-ins::before{background:var(--ins)}
-#doc.rendered .marker-del::before{background:var(--del)}
-#doc.rendered .marker-sub::before{background:var(--com)}
+#doc.rendered .marker-bar::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:2px;border-radius:1px;
+}
+#doc.rendered .marker-ins.marker-bar::before{background:var(--ins)}
+#doc.rendered .marker-del.marker-bar::before{background:var(--del)}
+#doc.rendered .marker-sub.marker-bar::before{background:var(--com)}
 #doc.rendered h1.marker-ins,#doc.rendered h2.marker-ins,#doc.rendered h3.marker-ins,
-#doc.rendered h1.marker-sub,#doc.rendered h2.marker-sub,#doc.rendered h3.marker-sub{
+#doc.rendered h1.marker-sub,#doc.rendered h2.marker-sub,#doc.rendered h3.marker-sub,
+#doc.rendered h1.marker-del,#doc.rendered h2.marker-del,#doc.rendered h3.marker-del{
   position:relative;
 }
 
@@ -254,7 +254,11 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   outline:1px dashed currentColor;outline-offset:0;
 }
 #doc.rendered .r-hl.unexplained{outline-color:var(--com)}
-#doc.rendered .unexplained{position:relative}
+/* Only the inline ones: the bar in the margin is positioned already, and this
+   rule would knock it out of the margin at equal specificity. */
+#doc.rendered .r-ins.unexplained,
+#doc.rendered .r-del.unexplained,
+#doc.rendered .r-hl.unexplained{position:relative}
 
 /* Hover an unexplained change and the way to explain it comes to hand. Hidden
    and absolutely positioned, so it neither clutters the prose nor moves it.
@@ -266,6 +270,7 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   -webkit-user-select:none;user-select:none;
 }
 #doc.rendered .unexplained:hover .add-reason{display:block}
+#doc.rendered .marker-bar .add-reason{left:0;transform:none}
 #doc.rendered .add-reason-pill{
   display:block;width:max-content;
   font-family:var(--ui);font-size:11.5px;line-height:1.45;
@@ -275,11 +280,10 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   box-shadow:0 4px 14px rgba(23,24,26,.18);
 }
 #doc.rendered .add-reason:hover .add-reason-pill{background:#2c2e33}
-#doc.rendered .marker-ins.unexplained::before,
-#doc.rendered .marker-del.unexplained::before,
-#doc.rendered .marker-sub.unexplained::before{
+#doc.rendered .marker-bar.unexplained::before{
   background-image:repeating-linear-gradient(180deg,transparent 0 2px,var(--paper) 2px 4px);
 }
+#doc.rendered .marker-bar.unexplained{cursor:pointer}
 
 /* The reason itself, on hover. */
 #doc.rendered .r-ins[data-reason],
@@ -287,7 +291,8 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 #doc.rendered .r-hl[data-reason]{position:relative}
 #doc.rendered .r-ins[data-reason]::after,
 #doc.rendered .r-del[data-reason]::after,
-#doc.rendered .r-hl[data-reason]::after{
+#doc.rendered .r-hl[data-reason]::after,
+#doc.rendered .marker-bar[data-reason]::after{
   content:attr(data-reason);
   position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
   z-index:30;width:max-content;max-width:20em;
@@ -300,7 +305,8 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 }
 #doc.rendered .r-ins[data-reason]:hover::after,
 #doc.rendered .r-del[data-reason]:hover::after,
-#doc.rendered .r-hl[data-reason]:hover::after{opacity:1}
+#doc.rendered .r-hl[data-reason]:hover::after,
+#doc.rendered .marker-bar[data-reason]:hover::after{opacity:1}
 
 /* Blocks we do not fully understand: shown, not edited. */
 #doc.rendered .island{

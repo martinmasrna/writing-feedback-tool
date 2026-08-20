@@ -21,6 +21,7 @@
  */
 
 import { toVisible, toSource, sliceSpans } from '../visible.js';
+import { parse } from '../criticmarkup.js';
 import { parseVisibleBlocks } from '../blocks.js';
 import { parseInline } from '../inline.js';
 
@@ -60,6 +61,56 @@ export function buildRendered(source) {
     return node;
   };
 
+  /** Struck and highlighted text: on screen, but never typed into. */
+  const unedittable = (piece) => !!piece && !!piece.kind && piece.kind !== 'ins';
+
+  const annotations = new Map(parse(source).map((a) => [a.start, a]));
+
+  /**
+   * The source offsets either side of a piece that the caret can actually
+   * occupy — the annotation's own boundaries, not the visible mapping.
+   *
+   * `toSource` answers with the first *drawn* character, which for struck text
+   * is the one inside the opening delimiter: an offset the caret may never
+   * hold. The reachable positions are before `{--` and after `--}` — after the
+   * reason chip too, since that belongs to the annotation.
+   *
+   * Null when the piece does not span its whole annotation, which happens when
+   * a deletion crosses a line break or wraps inline markdown. Those inner
+   * positions are inside the markup and unreachable by design.
+   */
+  function edgesOf(piece) {
+    const ann = annotations.get(piece.annStart);
+    const span = ann && visible.spans.find((s) =>
+      s.annStart === piece.annStart && s.start <= piece.start && s.end >= piece.end);
+    if (!span) return { before: null, after: null };
+    return {
+      before: span.start === piece.start ? ann.start : null,
+      after: span.end === piece.end ? ann.end : null,
+    };
+  }
+
+  /**
+   * A zero-width place for the caret to stand, mapped to a real source offset.
+   *
+   * Chrome will neither put the caret inside a `contenteditable="false"` run
+   * nor at its far edge, so a deletion that ends a block leaves the position
+   * after it with no text node behind it. The caret then falls to the nearest
+   * node there is — the next block — and the next thing typed lands in the
+   * wrong paragraph. Delete a word off the end of a paragraph and type the
+   * replacement, and it appears in the one below.
+   *
+   * Same device as `doc-tail` and the blank-line spacers: an empty text node
+   * carrying a mapping. It is *not* `data-virtual`, because unlike a bullet or
+   * a comment chip there is a real source offset behind it.
+   */
+  function landingSpot(parent, start) {
+    if (start === null) return;
+    const node = document.createTextNode('');
+    parent.append(node);
+    mappings.push({ node, start });
+  }
+
   /**
    * Emit visible [from,to), split at change boundaries so insertions and
    * deletions get their styling, and each piece gets a source mapping.
@@ -68,6 +119,11 @@ export function buildRendered(source) {
     if (to <= from) return;
     const pieces = sliceSpans(visible, from, to);
     pieces.forEach((piece, i) => {
+      const edges = unedittable(piece) ? edgesOf(piece) : { before: null, after: null };
+
+      // Nothing precedes an opening run of struck text, so give it an edge.
+      if (i === 0) landingSpot(parent, edges.before);
+
       const node = document.createTextNode(visible.text.slice(piece.start, piece.end));
       let host = parent;
       if (piece.kind) {
@@ -87,6 +143,9 @@ export function buildRendered(source) {
         if (commented.has(piece.annStart)) parent.append(chip(reasonFor.get(piece.annStart), piece.annStart));
         else parent.append(noReason(piece.annStart));
       }
+
+      // And an edge on the far side, unless ordinary text already provides one.
+      if (!(next && !unedittable(next))) landingSpot(parent, edges.after);
     });
   }
 

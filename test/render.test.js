@@ -129,6 +129,35 @@ test('an annotation spanning a line break yields two real blocks', () => {
   assert.equal(DELIMITERS.test(screenText(r.host)), false);
 });
 
+test('a deletion that ends a block can be stood after', () => {
+  // Delete a word off the end of a paragraph and type the replacement: the
+  // caret used to fall to the nearest text node, which is the next block, and
+  // the replacement appeared in the paragraph below.
+  const ed = editor('# T\n\nAlpha beta gamma.\n\nSecond paragraph.\n')
+    .caretBefore('gamma').press('Alt+Delete');
+  const r = render(ed.source);
+  const [node, offset] = r.index.sourceToPoint(ed.caret.start);
+  assert.equal(r.index.pointToSource(node, offset), ed.caret.start);
+  assert.equal(node.parentElement.closest('p').textContent.includes('Alpha'), true,
+    'the caret belongs in the paragraph it was editing, not the one below');
+});
+
+test('a deletion that opens a block can be stood before', () => {
+  const ed = editor('# T\n\nAlpha beta.\n').select('Alpha').press('Backspace');
+  const r = render(ed.source);
+  const [node, offset] = r.index.sourceToPoint(ed.caret.start);
+  assert.equal(r.index.pointToSource(node, offset), ed.caret.start);
+});
+
+test('a landing spot is real text, not chrome', () => {
+  // It carries a source offset, so unlike a bullet or a comment chip the caret
+  // must be able to address it.
+  const r = render('Alpha beta {--gamma.--}\n');
+  const spots = r.mappings.filter((m) => m.node.nodeValue === '');
+  assert.ok(spots.length > 0, 'the deletion ends the block, so it needs one');
+  for (const spot of spots) assert.equal(isVirtual(spot.node), false);
+});
+
 /* --- structure the renderer is responsible for ---------------------------- */
 
 test('list items group into one list, not one list each', () => {

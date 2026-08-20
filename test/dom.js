@@ -13,8 +13,10 @@
 
 import { JSDOM } from 'jsdom';
 import { buildRendered } from '../src/dom/render-rendered.js';
+import { buildDocument } from '../src/dom/render.js';
 import { createOffsetIndex } from '../src/dom/offsets.js';
 import { toVisible } from '../src/visible.js';
+import { parse } from '../src/criticmarkup.js';
 import { parseVisibleBlocks } from '../src/blocks.js';
 import { editor } from './harness.js';
 
@@ -44,6 +46,19 @@ export function render(source) {
   index.reindex(mappings);
   const visible = toVisible(source);
   return { source, host, mappings, index, visible, blocks: parseVisibleBlocks(visible.text, visible.spans) };
+}
+
+/**
+ * Build the Source view, where every character of the document is on screen and
+ * offsets are a running sum rather than explicit mappings.
+ */
+export function buildSource(source) {
+  const doc = installDom();
+  const host = doc.createElement('div');
+  host.append(buildDocument(source, parse(source)));
+  const index = createOffsetIndex(host);
+  index.reindex(null);
+  return { source, host, index };
 }
 
 /** Is this node inside chrome the caret must not be able to address? */

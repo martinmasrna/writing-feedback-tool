@@ -43,31 +43,39 @@ export function buildRendered(source) {
   const frag = document.createDocumentFragment();
   const mappings = [];
 
-  const commented = new Set(visible.comments.filter((c) => c.annStart !== null).map((c) => c.annStart));
   const reasonFor = new Map(visible.comments.filter((c) => c.annStart !== null).map((c) => [c.annStart, c.text]));
 
   /**
-   * A reason is a footnote, not an interruption.
+   * A reason rides on the change it explains: `data-reason` for the hover
+   * bubble the stylesheet draws, `unexplained` where one is still owed.
    *
-   * Both marks are a dot the width of a letter, carrying their text in
-   * `data-reason` for the hover bubble the stylesheet draws. Setting it inline
-   * put a sentence of review commentary in the middle of the sentence under
-   * review — a two-word substitution ended up shorter than the note about it.
-   * The text is still read in full in the sidebar, and in the dialog a click
-   * on the mark opens.
+   * Nothing is drawn for it. Setting the text inline put a sentence of review
+   * commentary in the middle of the sentence under review; a mark after the
+   * change was smaller but still a glyph in the prose, and the change is
+   * already on screen with two free channels — its outline and its hover.
+   * The text is read in full in the sidebar, and in the dialog ⌘⌥R opens.
+   */
+  function markReason(wrap, annStart) {
+    if (annStart === null) return;
+    const reason = reasonFor.get(annStart);
+    if (reason !== undefined) {
+      wrap.dataset.reason = reason;
+      wrap.setAttribute('aria-label', reason);
+    } else {
+      wrap.classList.add('unexplained');
+    }
+  }
+
+  /**
+   * A comment with no edit under it has nothing to shade, so it keeps a mark
+   * of its own — the one place a dot in the prose is the only way to say
+   * anything at all.
    */
   const chip = (body, annStart) => {
     const node = chrome(el('span', 'r-com'));
     node.dataset.reason = body;
     node.setAttribute('aria-label', body);
     if (annStart !== undefined) node.dataset.ann = String(annStart);
-    return node;
-  };
-  const noReason = (annStart) => {
-    const node = chrome(el('span', 'r-noreason'));
-    node.dataset.reason = 'No reason yet — click to explain this edit';
-    node.dataset.ann = String(annStart);
-    node.setAttribute('aria-label', 'No reason given');
     return node;
   };
 
@@ -140,21 +148,15 @@ export function buildRendered(source) {
         const wrap = el('span', `r-${piece.kind}`);
         if (piece.kind !== 'ins') atomic(wrap);   // struck and highlighted text is not typed into
         wrap.dataset.start = String(piece.annStart);
+        markReason(wrap, piece.annStart);
         parent.append(wrap);
         host = wrap;
       }
       host.append(node);
       mappings.push({ node, start: toSource(visible, piece.start) });
 
-      // The annotation ends here if the next piece belongs to another (or none).
-      const next = pieces[i + 1];
-      const ends = piece.annStart !== null && (!next || next.annStart !== piece.annStart);
-      if (ends) {
-        if (commented.has(piece.annStart)) parent.append(chip(reasonFor.get(piece.annStart), piece.annStart));
-        else parent.append(noReason(piece.annStart));
-      }
-
       // And an edge on the far side, unless ordinary text already provides one.
+      const next = pieces[i + 1];
       if (!(next && !unedittable(next))) landingSpot(parent, edges.after);
     });
   }
@@ -222,6 +224,7 @@ export function buildRendered(source) {
     if (!change) return;
     node.classList.add(`marker-${change.kind}`);
     node.dataset.start = String(change.annStart);
+    markReason(node, change.annStart);
   }
 
   let stack = [];

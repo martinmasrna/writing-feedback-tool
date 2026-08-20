@@ -28,14 +28,18 @@ A reason is a comment directly after an edit: `{~~old~>new~~}{>>why<<}`.
 You are never interrupted for one. Reasons are a review-time act, not a
 typing-time one — you press Enter for room, write, delete half of it, come back
 ten minutes later. So an unexplained edit is *marked* instead: inline, in the
-sidebar, and in the header counter. Click any of them to write it, or press ⌘⌥R
-to walk through what is still outstanding.
+sidebar, and in the header counter. Click its sidebar entry to write the
+reason, or press ⌘⌥R to walk through what is still outstanding.
 
-Inline, the mark is a footnote-sized dot after the change — filled where there
-is a reason, hollow where one is still owed. Hovering reads it, clicking edits
-it. The text itself stays out of the line: a sentence of review commentary set
-in the middle of the sentence under review is unreadable, and the sidebar shows
-every reason in full anyway.
+Inline, nothing is drawn for a reason at all. The change is already on screen,
+so it carries both states itself: its outline is dashed while a reason is
+owed — the margin bar of a structural change goes dotted the same way — and
+hovering it reads the reason once there is one. A comment with no edit under it
+is the one thing with nothing to shade, so it keeps a mark of its own.
+
+The text of a reason never sits in the line. A sentence of review commentary
+set in the middle of the sentence under review is unreadable, and the sidebar
+shows every reason in full anyway.
 
 ## Views
 
@@ -116,7 +120,7 @@ whenever an edit landed inside it.
 **The browser never mutates the document.** `#doc` is `contenteditable`, but
 every `beforeinput` is cancelled and turned into an operation on the markdown
 string, which is then re-rendered. Anything that must not be edited — delimiters,
-struck text, reason marks — is `contenteditable="false"`.
+struck text, comment marks — is `contenteditable="false"`.
 
 **Anything about where the caret is gets asked in visible coordinates.** Source
 offsets lie whenever markup is in the way, and quietly: two offsets six

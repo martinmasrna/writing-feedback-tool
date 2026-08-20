@@ -195,10 +195,11 @@ export function createApp() {
   pane.addEventListener('scroll', () => { if (!dialog.open) toolbar.hide(); });
 
   doc.addEventListener('click', (e) => {
-    // The rendered view's footnote marks address their annotation by source
-    // offset; the source view's flag by index. A reason mark opens the same
-    // dialog as an empty one — the prompt prefills, so it reads as an edit.
-    const marker = e.target.closest ? e.target.closest('.noreason, .r-noreason, .r-com') : null;
+    // The rendered view marks a standalone comment by source offset; the
+    // source view's unexplained-edit flag by index. Changes themselves are not
+    // click targets: an insertion is text you are still typing into, and the
+    // click that puts the caret there cannot also open a dialog.
+    const marker = e.target.closest ? e.target.closest('.noreason, .r-com') : null;
     if (!marker) return;
     e.preventDefault();
     const a = marker.classList.contains('noreason')

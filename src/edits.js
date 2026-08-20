@@ -17,7 +17,7 @@
 
 import {
   parse, tokenize, regionAt, annStartingAt, annEndingAt, overlapping, plainRun,
-  bodyStart, bodyEnd, newStart, newEnd, sanitize, markup, reasonMd, originalOf,
+  bodyStart, bodyEnd, newStart, newEnd, sanitize, markup, reasonMd, originalOf, transform,
 } from './criticmarkup.js';
 
 const at = (p) => ({ start: p, end: p });
@@ -324,6 +324,31 @@ export function removeAnnotation(text, annStart) {
     caret: { start: a.start, end: a.start + keep.length },
     coalesce: null,
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/* The one promise                                                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Would this change what the document reverts to? Then it is not an edit.
+ *
+ * Rejecting every annotation has to give back exactly the document that was
+ * opened — that is the whole contract with whoever reads the file afterwards.
+ * Every operation here preserves it by construction, so a result that does not
+ * is a sign the markup has been broken rather than extended.
+ *
+ * That happens when the file already holds CriticMarkup delimiters that are not
+ * part of an annotation. A stray `--}` inside text being struck out ends the
+ * deletion early; a stray `{--` anywhere earlier swallows the closing delimiter
+ * of the next annotation made after it. Either way the document stops saying
+ * what it said.
+ *
+ * Far cheaper to check than to enumerate, so the funnel every result passes
+ * through asks this and refuses rather than corrupt the file.
+ */
+export function preservesOriginal(before, after) {
+  return transform(after, 'rejected') === transform(before, 'rejected');
 }
 
 /* -------------------------------------------------------------------------- */

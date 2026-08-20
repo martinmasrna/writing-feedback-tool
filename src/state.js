@@ -7,7 +7,7 @@
  */
 
 import { parse } from './criticmarkup.js';
-import { normalize } from './edits.js';
+import { normalize, preservesOriginal } from './edits.js';
 
 const HISTORY_LIMIT = 400;
 /** Keystrokes of the same kind within this window collapse into one undo step. */
@@ -85,7 +85,7 @@ export function createStore() {
 
     /**
      * Apply a result from the edit engine.
-     * @returns {'applied'|'moved'|'blocked'|'noop'}
+     * @returns {'applied'|'moved'|'blocked'|'unsafe'|'noop'}
      */
     apply(result) {
       if (!result) return 'noop';
@@ -96,9 +96,13 @@ export function createStore() {
         emit();
         return 'moved';
       }
-      pushHistory(result.coalesce);
       // Collapse edits that undo each other before they reach the document.
       const settled = normalize(result.text, result.caret);
+      // And never let one through that changes the document underneath the
+      // annotations. Every edit preserves it by construction, so one that does
+      // not has broken the markup rather than extended it.
+      if (!preservesOriginal(state.text, settled.text)) return 'unsafe';
+      pushHistory(result.coalesce);
       state.text = settled.text;
       state.caret = settled.caret;
       reparse();

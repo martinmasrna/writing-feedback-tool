@@ -219,6 +219,11 @@ export function createApp() {
   }
 
   function refuse(blocked) {
+    if (blocked.kind === 'delimiter') {
+      toast('That text contains a CriticMarkup delimiter, so it cannot be wrapped in an '
+        + 'annotation without breaking it. Remove the delimiter first, or select around it.');
+      return;
+    }
     if (blocked.kind === 'unsupported') {
       const what = blocked.reason === 'code' ? 'a code block' : blocked.reason === 'table' ? 'a table' : 'raw HTML';
       toast(`That selection takes in ${what}, which this view cannot edit safely. `
@@ -260,7 +265,11 @@ export function createApp() {
     if (!result) return;
     if (result.blocked) { refuse(result.blocked); return; }
     if (result.stripped) toast('Removed CriticMarkup delimiters — they would corrupt the annotation.');
-    store.apply(result);
+    if (store.apply(result) === 'unsafe') {
+      toast('That edit would change the document underneath the annotations, so it was refused. '
+        + 'This file contains CriticMarkup delimiters that are not part of an annotation — '
+        + 'the Source view will show where.');
+    }
   }
 
   /* --- structural commands ------------------------------------------------ */

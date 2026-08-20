@@ -28,7 +28,7 @@
  */
 
 import { applyAction, moveCaret, paragraphBreak } from '../src/editor.js';
-import { normalize } from '../src/edits.js';
+import { normalize, preservesOriginal } from '../src/edits.js';
 import { transform, parse, tokenize, regionAt, plainRun } from '../src/criticmarkup.js';
 import { toVisible, toVisibleOffset } from '../src/visible.js';
 
@@ -160,8 +160,11 @@ export function editor(initial, options = {}) {
       if (!result) { last = { kind: 'none' }; return api; }
       if (result.blocked || result.blockedReason) { last = { kind: 'blocked' }; log.push('  (refused)'); return api; }
       if (result.text === undefined) { last = { kind: 'moved' }; caret = result.caret; return api; }
-      last = { kind: 'changed', stripped: !!result.stripped };
       const settled = normalize(result.text, result.caret);
+      // The store refuses anything that would change the document underneath
+      // the annotations; so must this, or tests prove things the app will not do.
+      if (!preservesOriginal(text, settled.text)) { last = { kind: 'blocked' }; log.push('  (unsafe)'); return api; }
+      last = { kind: 'changed', stripped: !!result.stripped };
       text = settled.text;
       caret = settled.caret;
       return api;

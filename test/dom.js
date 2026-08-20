@@ -16,6 +16,7 @@ import { buildRendered } from '../src/dom/render-rendered.js';
 import { createOffsetIndex } from '../src/dom/offsets.js';
 import { toVisible } from '../src/visible.js';
 import { parseVisibleBlocks } from '../src/blocks.js';
+import { editor } from './harness.js';
 
 let dom = null;
 
@@ -65,4 +66,63 @@ export function screenText(host) {
 /** Every text node the renderer mapped, paired with the offset it claims. */
 export function mappedNodes({ mappings }) {
   return mappings.map((m) => ({ text: m.node.nodeValue, start: m.start, node: m.node }));
+}
+
+/**
+ * The app's loop, without the app.
+ *
+ * `app.js` renders after every edit, writes the caret into the DOM, and then —
+ * because writing it fires `selectionchange` — reads it straight back. The
+ * screen cannot represent every source offset, so that round trip is lossy, and
+ * whatever comes back is what the *next* keystroke is applied to. Nothing in a
+ * string test can see this: the loss only exists once there is a DOM.
+ *
+ * This drives the real editor with the real renderer and the real offset index
+ * in between, exactly as the app does. Compare a session run through here with
+ * the same session run through `editor()` alone: they must agree, or the screen
+ * is changing what the document becomes.
+ */
+export function domSession(initial, options = {}) {
+  const ed = editor(initial, options);
+  const doc = installDom();
+  const host = doc.createElement('div');
+  doc.body.append(host);
+  const index = createOffsetIndex(host);
+  const readings = [];
+
+  /** Re-render, put the caret on screen, and read back whatever survived. */
+  function settle() {
+    host.textContent = '';
+    const { fragment, mappings } = buildRendered(ed.source);
+    host.append(fragment);
+    index.reindex(mappings);
+    index.writeSelection(ed.caret);
+    const read = index.readSelection();
+    readings.push({ held: ed.caret.start, read: read && read.start });
+    // `app.js` keeps the caret it holds when the reading means the same place.
+    if (read && !options.trustDom) {
+      const same = index.readBack(ed.caret.start) === read.start
+        && index.readBack(ed.caret.end) === read.end;
+      if (!same) ed.selectRange(read.start, read.end);
+    } else if (read) {
+      ed.selectRange(read.start, read.end);
+    }
+    return api;
+  }
+
+  const api = {
+    ed,
+    host,
+    index,
+    get readings() { return readings.slice(); },
+    get source() { return ed.source; },
+    get accepted() { return ed.accepted; },
+    type(str) { for (const ch of str) { ed.act({ type: 'insertText', data: ch }); settle(); } return api; },
+    press(key, times = 1) { for (let i = 0; i < times; i++) { ed.press(key); settle(); } return api; },
+    caretBefore(needle) { ed.caretBefore(needle); return settle(); },
+    caretAfter(needle) { ed.caretAfter(needle); return settle(); },
+    select(needle) { ed.select(needle); return settle(); },
+  };
+
+  return settle();
 }

@@ -194,6 +194,23 @@ test('a marker mid-change carries the class that tints it', () => {
   assert.equal(struck.host.querySelector('li.marker-del') !== null, true);
 });
 
+test('a structural change is something the sidebar can scroll to', () => {
+  // The marker is drawn as a bullet or a heading, never as text with a span
+  // around it, so the block element is the only thing on screen standing for
+  // that edit. Without an offset on it, clicking the entry did nothing.
+  for (const [source, tag] of [
+    ['{++- ++}Item\n', 'li'],
+    ['{--- --}Item\n', 'li'],
+    ['{~~## ~># ~~}Title\n', 'h1'],
+  ]) {
+    const found = render(source).host.querySelector('[data-start="0"]');
+    assert.ok(found, `nothing to reveal for ${JSON.stringify(source)}`);
+    assert.equal(found.tagName.toLowerCase(), tag);
+  }
+  assert.equal(render('## Title\n').host.querySelector('[data-start]'), null,
+    'and an unchanged block carries nothing');
+});
+
 test('a marker being replaced is not tinted as a deletion', () => {
   // A bullet becoming a heading is a conversion, and wearing the same red ✕ as
   // a bullet that is genuinely being removed says the opposite of what happened.
@@ -365,3 +382,72 @@ for (const [name, build] of CARET_CASES) {
       `the caret at ${ed.caret.start} does not survive a round trip through the DOM\n  ${JSON.stringify(ed.marked)}`);
   });
 }
+
+/* --- and over documents an editing session actually produces --------------- */
+
+/**
+ * The fixed documents above are chosen; these are whatever a few hundred random
+ * sessions leave behind, which is a different and less flattering set. Crossing
+ * the two layers this way is what turned up the caret bugs — a render check on
+ * hand-written input and an editing check with no renderer in it each looked
+ * fine on their own.
+ */
+const mulberry32 = (a) => () => {
+  a |= 0; a = (a + 0x6D2B79F5) | 0;
+  let t = Math.imul(a ^ (a >>> 15), 1 | a);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+const FUZZ_DOCS = [
+  '# Title\n\nA paragraph with **bold** and `code`.\n',
+  '## Heading\n\n- one\n- two\n\n> quoted\n\nTrailing.\n',
+  '# T\n\nPara one.\n\n```\ncode\n```\n\nPara two.\n',
+  'Text with {~~old~>new~~}{>>why<<} replacement.\n',
+  'A [link](https://x/y) and *italic* here.\n',
+];
+const FUZZ_KEYS = ['Backspace', 'Delete', 'Enter', 'Alt+Backspace', 'Alt+Delete', 'Cmd+Backspace'];
+const FUZZ_WORDS = ['a', 'x', 'the ', '\n', '*', '`', '[', ']', '|', '#', '-'];
+
+const renderFailures = [];
+for (let session = 0; session < 200; session++) {
+  const rnd = mulberry32(session * 8291 + 29);
+  const ed = editor(FUZZ_DOCS[Math.floor(rnd() * FUZZ_DOCS.length)]);
+
+  for (let step = 0; step < 10; step++) {
+    try {
+      const roll = rnd();
+      if (roll < 0.4) ed.type(FUZZ_WORDS[Math.floor(rnd() * FUZZ_WORDS.length)]);
+      else if (roll < 0.75) ed.press(FUZZ_KEYS[Math.floor(rnd() * FUZZ_KEYS.length)]);
+      else {
+        const words = ed.accepted.split(/\s+/).filter((w) => w.length > 2);
+        if (words.length) ed.select(words[Math.floor(rnd() * words.length)]);
+      }
+    } catch { continue; }
+  }
+
+  let r;
+  try { r = render(ed.source); }
+  catch (e) { renderFailures.push([ed.source, `render threw: ${e.message}`]); continue; }
+
+  const screen = screenText(r.host);
+  if (DELIMITERS.test(screen)) { renderFailures.push([ed.source, `markup reached the screen: ${JSON.stringify(screen.slice(0, 60))}`]); continue; }
+
+  let last = -1;
+  for (const m of r.mappings) {
+    const text = m.node.nodeValue;
+    if (!text) continue;
+    const from = toVisibleOffset(r.visible, m.start);
+    if (r.visible.text.slice(from, from + text.length) !== text) {
+      renderFailures.push([ed.source, `a node claims offset ${m.start} but holds ${JSON.stringify(text.slice(0, 24))}`]);
+      break;
+    }
+    if (from < last) { renderFailures.push([ed.source, 'nodes came out of order']); break; }
+    last = from + text.length;
+  }
+}
+
+test('200 sessions of edits all render truthfully', () => {
+  const report = renderFailures.slice(0, 3).map(([src, why]) => `  ${why}\n    ${JSON.stringify(src).slice(0, 120)}`).join('\n');
+  assert.equal(renderFailures.length, 0, `${renderFailures.length} documents rendered wrongly\n${report}`);
+});

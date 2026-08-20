@@ -187,17 +187,31 @@ export function buildRendered(source) {
   }
 
   /**
-   * Which tracked change, if any, is this block's marker caught up in?
+   * The tracked change this block's marker is caught up in, if any.
    *
    * A substitution puts both halves on screen, and `pair` marks them. That is a
    * marker being *replaced*, not struck out: a bullet becoming a heading is not
    * a deletion and must not wear the same red ✕ as one.
+   *
+   * The annotation's offset comes back too, and goes on the block element. It
+   * is the only thing on screen standing for that edit — the marker is drawn as
+   * a bullet or a heading, never as text with a span around it — so without it
+   * the sidebar has nothing to scroll to and clicking a structural change did
+   * nothing at all.
    */
-  function markerState(block) {
+  function markerChange(block) {
     if (block.markerStart === undefined) return null;
     const hit = visible.spans.find((s) => block.markerStart >= s.start && block.markerStart < s.end);
     if (!hit) return null;
-    return hit.pair ? 'sub' : hit.kind;
+    return { kind: hit.pair ? 'sub' : hit.kind, annStart: hit.annStart };
+  }
+
+  /** Mark a block whose marker is mid-change, and let it be scrolled to. */
+  function tintMarker(node, block) {
+    const change = markerChange(block);
+    if (!change) return;
+    node.classList.add(`marker-${change.kind}`);
+    node.dataset.start = String(change.annStart);
   }
 
   let stack = [];
@@ -234,8 +248,7 @@ export function buildRendered(source) {
         stack[depth] = { node: list, tag: wantTag };
       }
       const li = el('li');
-      const state = markerState(block);
-      if (state) li.classList.add(`marker-${state}`);
+      tintMarker(li, block);
       li.dataset.block = String(toSource(visible, block.start));
       renderContent(li, block.contentStart, block.contentEnd);
       stack[depth].node.append(li);
@@ -263,8 +276,8 @@ export function buildRendered(source) {
 
     let node;
     if (block.type === 'heading') {
-      const state = markerState(block);
-      node = el(`h${Math.min(block.level, 6)}`, state ? `marker-${state}` : '');
+      node = el(`h${Math.min(block.level, 6)}`);
+      tintMarker(node, block);
     } else if (block.type === 'blockquote') {
       node = el('blockquote');
     } else {

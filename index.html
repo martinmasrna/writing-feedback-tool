@@ -31,6 +31,9 @@
     <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
     <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
   </symbol>
+  <symbol id="i-side" viewBox="0 0 24 24">
+    <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>
+  </symbol>
   <symbol id="i-help" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="10"/>
     <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
@@ -56,6 +59,8 @@
       <button class="icon" id="btnOpen" data-label="Open" aria-label="Open"><svg><use href="#i-open"/></svg></button>
       <button class="icon" id="btnCopy" data-label="Copy markdown" aria-label="Copy"><svg><use href="#i-copy"/></svg></button>
       <button class="icon primary" id="btnSave" data-label="Save ⌘S" aria-label="Save"><svg><use href="#i-save"/></svg></button>
+      <div class="sep"></div>
+      <button class="icon ghost" id="btnSide" data-label="Annotations" aria-label="Annotations"><svg><use href="#i-side"/></svg></button>
       <div id="help" hidden>
         <div class="keys">
           <kbd>type</kbd><span>tracked insertion — <code>{++…++}</code></span>

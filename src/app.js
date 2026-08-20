@@ -39,9 +39,10 @@ export function createApp() {
 
   const renderControls = createControls({
     undo: $('#btnUndo'), redo: $('#btnRedo'), save: $('#btnSave'), copy: $('#btnCopy'),
-    views: $('#views'),
+    views: $('#views'), side: $('#btnSide'),
   }, {
     onView: (view) => { toolbar.hide(); store.setView(view); },
+    onToggleSide: () => store.toggleSide(),
   });
 
   const renderSidebar = createSidebar({ list: $('#list'), count: $('#annCount') }, {
@@ -102,6 +103,8 @@ export function createApp() {
 
     renderSidebar(state);
     renderControls(state, store.dirty());
+    // No document, no annotations to list: the panel is not an empty frame.
+    $('main').classList.toggle('side-off', !state.loaded || !state.sideOpen);
     $('#empty').style.display = state.loaded ? 'none' : 'flex';
 
     if (state.caret && !dialog.open) {

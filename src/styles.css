@@ -53,7 +53,7 @@ button.icon svg{width:15px;height:15px;fill:none;stroke:currentColor;
 }
 [data-label]:hover::after,[data-label]:focus-visible::after{opacity:1}
 /* The last button has no room to its right to centre a label under. */
-#tools>button:last-child::after{left:auto;right:0;transform:none}
+#tools>button:last-of-type::after{left:auto;right:0;transform:none}
 [data-label]:disabled::after{content:none}
 :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 textarea,input{font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);
@@ -99,6 +99,15 @@ main{display:flex;height:100%}
   content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;
   border-radius:50%;background:var(--paper);
 }
+#btnSide.on{background:#efedE8;color:var(--ink)}
+/* Folded away, the panel says how much is still unexplained from the button
+   that brings it back. */
+#btnSide[data-count]::before{
+  content:attr(data-count);position:absolute;top:-3px;right:-3px;
+  min-width:15px;height:15px;padding:0 3px;border-radius:8px;
+  background:var(--ink);color:#fff;font-size:9.5px;line-height:15px;
+  font-weight:600;text-align:center;letter-spacing:0;
+}
 
 #doc{
   max-width:calc(82ch + 64px);margin:0 auto;padding:8px 32px 55vh;
@@ -109,6 +118,7 @@ main{display:flex;height:100%}
 }
 #doc ::selection,#doc::selection{background:rgba(23,24,26,.16)}
 
+main.side-off #sidebar{display:none}
 #sidebar{width:334px;flex:none;border-left:1px solid var(--line);background:var(--surface);
   display:flex;flex-direction:column}
 .side-head{display:flex;align-items:baseline;gap:7px;padding:13px 15px 11px;

@@ -56,6 +56,9 @@ accepts it, a heading being demoted drawn at the level it is becoming.
 on screen, so this is where you edit anything the rendered view will not touch:
 code fences, tables and raw HTML render there as read-only islands.
 
+The annotation panel folds away from the last button in the row. Folded, it
+leaves behind the number of edits still owed a reason.
+
 ## Running it
 
 The shipped artifact is a single self-contained file:

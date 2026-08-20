@@ -40,13 +40,13 @@ function controls() {
   }
   const refs = {
     undo: make('button'), redo: make('button'),
-    save: make('button'), copy: make('button'), views,
+    save: make('button'), copy: make('button'), views, side: make('button'),
   };
-  const render = createControls(refs, { onView() {} });
+  const render = createControls(refs, { onView() {}, onToggleSide() {} });
   return {
     refs,
     show(source, extra = {}) {
-      render({ anns: parse(source), loaded: true, name: 'doc.md', view: 'rendered', undo: [], redo: [], ...extra },
+      render({ anns: parse(source), loaded: true, name: 'doc.md', view: 'rendered', sideOpen: true, undo: [], redo: [], ...extra },
         extra.dirty === true);
       return refs;
     },
@@ -147,6 +147,22 @@ test('the controls follow the document: which view, and whether it is saved', ()
   c.show('A {--cut--} here.\n', { dirty: true, view: 'source' });
   assert.equal(refs.save.classList.contains('dirty'), true, 'unsaved work is marked on Save');
   assert.equal([...refs.views.children].find((b) => b.classList.contains('on')).dataset.view, 'source');
+});
+
+test('a folded panel leaves its count behind, an open one does not', () => {
+  const c = controls();
+  const source = 'A {--cut--}{>>why<<} and an {++add++} and a {~~old~>new~~}.\n';
+
+  const open = c.show(source);
+  assert.equal(open.side.dataset.count, undefined, 'the list is right there saying it');
+  assert.equal(open.side.classList.contains('on'), true);
+
+  const shut = c.show(source, { sideOpen: false });
+  assert.equal(shut.side.dataset.count, '2', 'the insertion and the substitution');
+  assert.equal(shut.side.classList.contains('on'), false);
+
+  assert.equal(c.show('Nothing {--cut--}{>>explained<<} here.\n', { sideOpen: false }).side.dataset.count,
+    undefined, 'and nothing owed is nothing to say');
 });
 
 /* --- and over documents the editor actually produces ------------------------ */

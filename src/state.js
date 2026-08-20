@@ -23,6 +23,8 @@ export function createStore() {
     handle: null,
     loaded: false,
     view: 'rendered',
+    /** The annotation panel, which is a place to put things rather than a document fact. */
+    sideOpen: true,
     caret: null,
     /** Start offset of the annotation currently being typed into, if any. */
     activeStart: null,
@@ -149,6 +151,7 @@ export function createStore() {
     },
 
     setView(view) { state.view = view; emit(); },
+    toggleSide() { state.sideOpen = !state.sideOpen; emit(); },
     markSaved(name, handle) {
       state.saved = state.text;
       if (name) state.name = name;

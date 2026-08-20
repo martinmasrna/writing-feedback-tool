@@ -281,6 +281,18 @@ test('an unexplained edit is marked on the change itself', () => {
   assert.equal(struck.dataset.reason, undefined);
 });
 
+test('an unexplained edit carries the way to explain it, out of the text', () => {
+  const r = render('An edit {--with--} no reason.\n');
+  const pill = r.host.querySelector('.r-del .add-reason');
+  assert.ok(pill, 'the change holds it, so hovering the change reveals it');
+  assert.equal(pill.dataset.ann, '8', 'and it names the annotation by source offset');
+  assert.equal(isVirtual(pill), true, 'the caret cannot address it');
+  assert.equal(screenText(r.host), 'An edit with no reason.', 'nor does it reach the text');
+
+  const explained = render('An edit {--with--}{>>because<<} a reason.\n');
+  assert.equal(explained.host.querySelector('.add-reason'), null, 'an explained one has nothing to add');
+});
+
 test('a comment with no edit under it draws nothing at all', () => {
   const r = render('A line{>>standalone note<<} of prose.\n');
   assert.equal(screenText(r.host), 'A line of prose.', 'the prose is all there is');

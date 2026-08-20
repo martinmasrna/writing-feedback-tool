@@ -254,6 +254,27 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   outline:1px dashed currentColor;outline-offset:0;
 }
 #doc.rendered .r-hl.unexplained{outline-color:var(--com)}
+#doc.rendered .unexplained{position:relative}
+
+/* Hover an unexplained change and the way to explain it comes to hand. Hidden
+   and absolutely positioned, so it neither clutters the prose nor moves it.
+   The transparent padding bridges the gap to the change, or the pointer would
+   leave the one on its way to the other and the pill would vanish under it. */
+#doc.rendered .add-reason{
+  position:absolute;left:50%;bottom:100%;transform:translateX(-50%);
+  z-index:31;display:none;padding-bottom:7px;cursor:pointer;
+  -webkit-user-select:none;user-select:none;
+}
+#doc.rendered .unexplained:hover .add-reason{display:block}
+#doc.rendered .add-reason-pill{
+  display:block;width:max-content;
+  font-family:var(--ui);font-size:11.5px;line-height:1.45;
+  font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;
+  text-align:left;text-decoration:none;color:#fff;
+  background:var(--ink);border-radius:6px;padding:4px 9px;
+  box-shadow:0 4px 14px rgba(23,24,26,.18);
+}
+#doc.rendered .add-reason:hover .add-reason-pill{background:#2c2e33}
 #doc.rendered .marker-ins.unexplained::before,
 #doc.rendered .marker-del.unexplained::before,
 #doc.rendered .marker-sub.unexplained::before{

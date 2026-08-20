@@ -194,14 +194,17 @@ export function createApp() {
   pane.addEventListener('scroll', () => { if (!dialog.open) toolbar.hide(); });
 
   doc.addEventListener('click', (e) => {
-    // Only the source view's unexplained-edit flag is a click target, and it
-    // addresses its annotation by index. In the rendered view nothing stands
-    // beside a change to click: an insertion is text you are still typing
-    // into, and the click that puts the caret there cannot also open a dialog.
-    const marker = e.target.closest ? e.target.closest('.noreason') : null;
+    // Two ways in, and they address their annotation differently: the source
+    // view's flag by index, the rendered view's hover pill by source offset.
+    // Nothing else in the rendered view is a click target — an insertion is
+    // text you are still typing into, and the click that puts the caret there
+    // cannot also open a dialog.
+    const marker = e.target.closest ? e.target.closest('.noreason, .add-reason') : null;
     if (!marker) return;
     e.preventDefault();
-    const a = store.state.anns[Number(marker.dataset.ann)];
+    const a = marker.classList.contains('add-reason')
+      ? store.state.anns.find((x) => x.start === Number(marker.dataset.ann))
+      : store.state.anns[Number(marker.dataset.ann)];
     if (a) dialog.openReasonPrompt(a, store.state.caret, rectOf(a));
   });
 

@@ -55,15 +55,38 @@ export function buildRendered(source) {
    * already on screen with two free channels — its outline and its hover.
    * The text is read in full in the sidebar, and in the dialog ⌘⌥R opens.
    */
-  function markReason(wrap, annStart) {
+  function markReason(wrap, annStart, inline) {
     if (annStart === null) return;
     const reason = reasonFor.get(annStart);
     if (reason !== undefined) {
       wrap.dataset.reason = reason;
       wrap.setAttribute('aria-label', reason);
-    } else {
-      wrap.classList.add('unexplained');
+      return;
     }
+    wrap.classList.add('unexplained');
+    if (inline) wrap.append(addReason(annStart));
+  }
+
+  /**
+   * The way to explain an edit without leaving the document.
+   *
+   * Hidden until the change is hovered, and absolutely positioned, so it costs
+   * the prose nothing and shifts no text when it appears — the same place the
+   * reason bubble occupies on a change that has one. It cannot be the bubble
+   * itself: that is a pseudo-element, so a click on it lands on the change
+   * underneath, which for an insertion is text the caret has to be able to
+   * reach. This is a real node, and the click handler can tell them apart.
+   *
+   * Only inline changes get one. A structural change is a whole block, and a
+   * pill that appears whenever the pointer crosses a paragraph is in the way
+   * rather than to hand; those are explained from the sidebar or with ⌘⌥R.
+   */
+  function addReason(annStart) {
+    const hit = chrome(el('span', 'add-reason'));
+    hit.dataset.ann = String(annStart);
+    hit.setAttribute('role', 'button');
+    hit.append(el('span', 'add-reason-pill', 'Add a reason'));
+    return hit;
   }
 
 
@@ -135,7 +158,7 @@ export function buildRendered(source) {
         const wrap = el('span', `r-${piece.kind}`);
         if (piece.kind !== 'ins') atomic(wrap);   // struck and highlighted text is not typed into
         wrap.dataset.start = String(piece.annStart);
-        markReason(wrap, piece.annStart);
+        markReason(wrap, piece.annStart, true);
         parent.append(wrap);
         host = wrap;
       }

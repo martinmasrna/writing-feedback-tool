@@ -1,29 +1,21 @@
-/** The floating toolbar shown over a selection. */
-
-const ACTIONS = [
-  { kind: 'sub', label: 'Replace…' },
-  { kind: 'del', label: 'Delete' },
-  { kind: 'hl', label: 'Comment', key: '⌘⌥M' },
-];
+/**
+ * The floating toolbar shown over a selection.
+ *
+ * One button. Deleting a selection is the Delete key and replacing it is
+ * typing over it — nobody reaches for a menu to do either. Commenting has no
+ * keystroke of its own beyond ⌘⌥M, which the shortcut list already names, so
+ * this is the affordance that has to exist.
+ */
 
 export function createToolbar(node, { onAction }) {
   function build() {
     node.textContent = '';
-    for (const action of ACTIONS) {
-      const b = document.createElement('button');
-      const label = document.createElement('span');
-      label.textContent = action.label;
-      b.append(label);
-      if (action.key) {
-        const kbd = document.createElement('kbd');
-        kbd.textContent = action.key;
-        b.append(kbd);
-      }
-      // Keep the document selection alive while the button is pressed.
-      b.addEventListener('mousedown', (e) => e.preventDefault());
-      b.addEventListener('click', () => onAction(action.kind));
-      node.append(b);
-    }
+    const b = document.createElement('button');
+    b.textContent = 'Comment';
+    // Keep the document selection alive while the button is pressed.
+    b.addEventListener('mousedown', (e) => e.preventDefault());
+    b.addEventListener('click', () => onAction('hl'));
+    node.append(b);
   }
 
   return {

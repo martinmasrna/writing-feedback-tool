@@ -183,8 +183,6 @@ main:not(.side-off) .sep-side{display:none}
 #toolbar button{border:0;background:transparent;padding:5px 9px;border-radius:6px;
   display:flex;align-items:center;gap:6px}
 #toolbar button:hover{background:#f1efec}
-#toolbar kbd{font-family:var(--mono);font-size:10px;color:var(--ink-3);
-  border:1px solid var(--line);border-radius:3px;padding:0 3px;line-height:14px}
 
 /* ---------- dialog ---------- */
 #scrim{position:fixed;inset:0;z-index:50;background:rgba(23,24,26,.08)}

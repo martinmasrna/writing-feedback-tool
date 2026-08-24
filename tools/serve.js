@@ -5,7 +5,7 @@
  */
 
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
@@ -36,10 +36,11 @@ const TYPES = {
 createServer(async (req, res) => {
   const url = new URL(req.url, `http://localhost:${port}`);
   if (url.pathname === '/open') {
-    const target = resolve(url.searchParams.get('path') || '');
-    const inRoots = OPEN_ROOTS.some((r) => target === r || target.startsWith(r + '/'));
-    if (!inRoots || !OPEN_EXTS.has(extname(target))) { res.writeHead(403).end('forbidden'); return; }
     try {
+      // realpath, not resolve: a symlink inside a root must not read outside it.
+      const target = await realpath(resolve(url.searchParams.get('path') || ''));
+      const inRoots = OPEN_ROOTS.some((r) => target === r || target.startsWith(r + '/'));
+      if (!inRoots || !OPEN_EXTS.has(extname(target))) { res.writeHead(403).end('forbidden'); return; }
       res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8', 'cache-control': 'no-store' })
         .end(await readFile(target));
     } catch {

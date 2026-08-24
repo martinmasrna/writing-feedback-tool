@@ -40,6 +40,22 @@ export async function openDocument(fileInput) {
   return null;
 }
 
+/**
+ * Fetch a document through the dev server's /open endpoint (deep links from
+ * mission control). Returns null when the server refuses or isn't there —
+ * the caller falls back to the normal drop zone.
+ * @returns {Promise<{text,name}|null>}
+ */
+export async function fetchDocument(path) {
+  try {
+    const res = await fetch(`/open?path=${encodeURIComponent(path)}`);
+    if (!res.ok) return null;
+    return { text: await res.text(), name: path.split('/').pop() };
+  } catch {
+    return null;
+  }
+}
+
 export function download(text, name) {
   const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
   const url = URL.createObjectURL(blob);

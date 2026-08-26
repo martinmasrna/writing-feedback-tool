@@ -183,6 +183,20 @@ test('an arrow asks the rendered view first, since it knows what is on screen', 
   assert.deepEqual(w.seen.carets, [{ start: 9, end: 9 }]);
 });
 
+test('vertical arrows ask the rendered view for a line-aware destination', () => {
+  const calls = [];
+  const w = wired({
+    selection: { start: 5, end: 5 },
+    stepInView: (offset, dir, axis) => { calls.push([offset, dir, axis]); return 9; },
+  });
+  const up = w.key({ key: 'ArrowUp' });
+  const down = w.key({ key: 'ArrowDown' });
+  assert.equal(up.defaultPrevented, true);
+  assert.equal(down.defaultPrevented, true);
+  assert.deepEqual(calls, [[5, -1, 'vertical'], [5, 1, 'vertical']]);
+  assert.deepEqual(w.seen.carets, [{ start: 9, end: 9 }, { start: 9, end: 9 }]);
+});
+
 test('an arrow falls back to plain stepping when the view has no opinion', () => {
   const w = wired({ selection: { start: 5, end: 5 }, stepInView: () => null });
   w.key({ key: 'ArrowLeft' });

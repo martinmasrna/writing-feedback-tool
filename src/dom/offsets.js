@@ -11,7 +11,7 @@
  * six source characters apart and adjacent on the page.
  */
 
-import { toVisibleOffset } from '../visible.js';
+import { toSource, toVisibleOffset } from '../visible.js';
 
 const isVirtual = (node) => {
   const el = node.nodeType === 1 ? node : node.parentElement;
@@ -159,10 +159,9 @@ export function createOffsetIndex(root) {
      * when every character is addressable (the source view) and plain stepping
      * will do.
      *
-     * The rendered view leaves whole stretches of source unaddressable: the
-     * blank line between two blocks is structure, not text, so no node holds
-     * it. Stepping onto one of those offsets snaps straight back and the arrow
-     * key appears dead. So we walk the positions that exist instead.
+     * The rendered view has to step over its mapped blank-line landing spots as
+     * well as ordinary text. Walking the rendered positions keeps left/right
+     * movement consistent with the source offsets behind the markup.
      */
     step(offset, dir) {
       if (!mapped) return null;
@@ -180,6 +179,30 @@ export function createOffsetIndex(root) {
         }
       }
       return best;
+    },
+
+    /** Move one rendered line vertically, including blank Markdown lines. */
+    vertical(offset, dir) {
+      if (!mapped || !visible) return null;
+      const text = visible.text;
+      const at = toVisibleOffset(visible, offset);
+      const starts = [0];
+      for (let i = 0; i < text.length; i++) {
+        if (text.charAt(i) === '\n') starts.push(i + 1);
+      }
+
+      let line = 0;
+      for (let i = 1; i < starts.length && starts[i] <= at; i++) line = i;
+      const targetLine = line + dir;
+      if (targetLine < 0 || targetLine >= starts.length) return null;
+
+      const currentStart = starts[line];
+      const currentEnd = line + 1 < starts.length ? starts[line + 1] - 1 : text.length;
+      const targetStart = starts[targetLine];
+      const targetEnd = targetLine + 1 < starts.length ? starts[targetLine + 1] - 1 : text.length;
+      const column = Math.max(0, Math.min(at - currentStart, currentEnd - currentStart));
+      const target = targetStart + Math.min(column, targetEnd - targetStart);
+      return target >= text.length ? visible.sourceLength : toSource(visible, target);
     },
 
     /** The current selection as source offsets, or null if it is not in the document. */

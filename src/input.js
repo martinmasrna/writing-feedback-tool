@@ -67,19 +67,20 @@ export function attachInput(doc, { read, apply, getText, getView, canEdit, undo,
       onTab(e.shiftKey);
       return;
     }
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const vertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
+    if (!vertical && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;   // word/line/selection: leave alone
 
     const sel = read();
     if (!sel) return;
-    const dir = e.key === 'ArrowLeft' ? -1 : 1;
+    const dir = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
 
     // A collapsed caret steps; a selection collapses to the edge you moved toward.
     // The rendered view knows about positions that do not exist on screen;
     // ask it first, and fall back to the view-independent rule.
     const text = getText();
     const from = sel.end > sel.start ? (dir < 0 ? sel.start : sel.end) : sel.start;
-    const inView = sel.end > sel.start ? null : (stepInView ? stepInView(from, dir) : null);
+    const inView = sel.end > sel.start ? null : (stepInView ? stepInView(from, dir, vertical ? 'vertical' : 'horizontal') : null);
     const next = inView !== null && inView !== undefined
       ? { start: inView, end: inView }
       : moveCaret(text, sel, dir);

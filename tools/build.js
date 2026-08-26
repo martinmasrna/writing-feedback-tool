@@ -36,8 +36,11 @@ async function main() {
   const html = shell
     // The dev shell's file:// warning is meaningless once everything is inlined.
     .replace(/<script id="dev-guard">[\s\S]*?<\/script>\n?/, '')
-    .replace('<link rel="stylesheet" href="./src/styles.css">', `<style>\n${css.trim()}\n</style>`)
-    .replace('<script type="module" src="./src/main.js"></script>', `<script>\n${escapeForScript(js).trim()}\n</script>`);
+    .replace('<link rel="stylesheet" href="./src/styles.css">', () => `<style>\n${css.trim()}\n</style>`)
+    // Use a replacer function: bundled JavaScript can contain `$&`-style
+    // sequences, which String#replace would otherwise expand in the output.
+    .replace('<script type="module" src="./src/main.js"></script>',
+      () => `<script>\n${escapeForScript(js).trim()}\n</script>`);
 
   if (html.includes('dev-guard')) throw new Error('build left the development-only guard in');
   if (html.includes('./src/main.js')) throw new Error('build left the development entry point in');

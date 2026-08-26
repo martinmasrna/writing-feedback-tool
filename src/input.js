@@ -13,7 +13,7 @@ import { applyAction, moveCaret } from './editor.js';
  * @param {(sel:{start,end}) => any} read      current selection in source offsets
  * @param {(result:any) => string}   apply     hand a result to the store
  */
-export function attachInput(doc, { read, apply, getText, getView, canEdit, undo, redo, onComposedRender, setCaret, stepInView }) {
+export function attachInput(doc, { read, apply, getText, getView, canEdit, undo, redo, onComposedRender, setCaret, stepInView, onTab }) {
   doc.addEventListener('beforeinput', (e) => {
     if (!canEdit()) { e.preventDefault(); return; }
     // Composition is handled at compositionend; cancelling it here breaks IME.
@@ -62,6 +62,11 @@ export function attachInput(doc, { read, apply, getText, getView, canEdit, undo,
   // nothing and the next keystroke lands in the wrong place.
   doc.addEventListener('keydown', (e) => {
     if (!canEdit()) return;
+    if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey && onTab) {
+      e.preventDefault();
+      onTab(e.shiftKey);
+      return;
+    }
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;   // word/line/selection: leave alone
 

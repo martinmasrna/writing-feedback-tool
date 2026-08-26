@@ -134,6 +134,21 @@ test('an empty document says how to start', () => {
   assert.equal(s.count.textContent, '');
 });
 
+test('clicking inside an edited reason keeps the textarea open', () => {
+  const list = sidebar().show('A {--cut--}{>>long reason text<<} here.\n');
+  const why = list.querySelector('.why');
+
+  why.click();
+  const textarea = why.querySelector('textarea');
+  assert.ok(textarea, 'clicking the reason opens its editor');
+  assert.equal(textarea.selectionStart, textarea.value.length, 'the caret starts at the end');
+  assert.equal(textarea.selectionEnd, textarea.value.length, 'the initial state is a caret, not a selection');
+
+  textarea.dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+  assert.equal(why.querySelector('textarea'), textarea,
+    'a click inside the editor does not reopen it and reset the selection');
+});
+
 /* --- the controls over the document ----------------------------------------- */
 
 // Rendering against exactly these refs is the check that nothing else is left

@@ -209,6 +209,95 @@ export function toggleBullet(text, caret, opts = {}) {
   return applyMarker(text, caret, block, marker);
 }
 
+/**
+ * Move the current list item by one two-space indentation level. The spaces
+ * are tracked as their own edit so accepting the review nests the item while
+ * rejecting it restores the original line exactly.
+ */
+function changeIndent(text, caret, delta) {
+  const g = guard(text, caret);
+  if (g.error) return g.error === 'unsupported' ? { blockedReason: 'unsupported' } : null;
+  const { block } = g;
+  if (block.type !== 'listItem') return null;
+
+  const visible = toVisible(text);
+  const currentIndent = block.indent;
+  const nextIndent = Math.max(0, currentIndent + delta);
+  if (nextIndent === currentIndent) return null;
+
+  const markerText = visible.text.slice(block.visible.markerStart, block.visible.markerEnd);
+  const anns = parse(text);
+  const markerAt = toSource(visible, block.visible.markerStart);
+  const markerChange = markerAnnotation(text, markerAt);
+  const markerSpan = markerChange
+    && visible.spans.find((span) => span.annStart === markerChange.a.start);
+
+  // A newly added marker may own the whole visible prefix. Extend that
+  // insertion in place instead of nesting a second annotation inside it. An
+  // Enter-created bullet also owns the preceding line break: `{++\n- ++}`.
+  // Preserve that break while extending the marker's indentation.
+  const markerLead = markerChange && markerChange.lead;
+  const lineLead = markerLead ? markerLead.replace(/[ \t]+$/, '') : '';
+  const expectedBody = markerChange && `${lineLead}${' '.repeat(currentIndent)}${markerText}`;
+  if (markerChange && markerChange.a.type === 'ins'
+    && markerSpan && markerSpan.start <= block.visible.start
+    && markerSpan.end === block.visible.markerEnd
+    && markerChange.a.a === expectedBody) {
+    const md = `{++${lineLead}${' '.repeat(nextIndent)}${markerText}++}`;
+    return {
+      text: splice(text, markerChange.a.tok.start, markerChange.a.tok.end, md),
+      caret: carry(caret, markerChange.a.tok.start, markerChange.a.tok.end, md.length),
+      coalesce: null,
+    };
+  }
+
+  const from = block.visible.start;
+  const to = block.visible.markerStart;
+  const prefixSpan = visible.spans.find((span) => span.start === from
+    && span.end <= to && span.kind === 'ins');
+  const prefixAnnotation = prefixSpan
+    && anns.find((a) => a.start === prefixSpan.annStart && a.type === 'ins');
+
+  // Keep repeated Tab presses in the same insertion instead of nesting a new
+  // annotation inside the old indentation.
+  if (prefixAnnotation && prefixAnnotation.tok.end === prefixAnnotation.end
+    && prefixAnnotation.a === ' '.repeat(prefixSpan.end - prefixSpan.start)) {
+    const bodyLength = delta > 0
+      ? prefixAnnotation.a.length + 2
+      : Math.max(0, prefixAnnotation.a.length - 2);
+    const spaces = ' '.repeat(bodyLength);
+    const md = spaces ? `{++${spaces}++}` : '';
+    return {
+      text: splice(text, prefixAnnotation.tok.start, prefixAnnotation.tok.end, md),
+      caret: carry(caret, prefixAnnotation.tok.start, prefixAnnotation.tok.end, md.length),
+      coalesce: null,
+    };
+  }
+
+  if (delta > 0) {
+    const at = toSource(visible, from);
+    if (regionAt(anns, at).kind !== 'plain') return { blockedReason: 'markup' };
+    const md = '{++  ++}';
+    return { text: splice(text, at, at, md), caret: shift(caret, at, md.length), coalesce: null };
+  }
+
+  const remove = Math.min(2, currentIndent);
+  const range = toSourceRange(visible, from, from + remove);
+  const old = text.slice(range.start, range.end);
+  if (old !== ' '.repeat(remove) || overlapping(anns, range.start, range.end)) {
+    return { blockedReason: 'markup' };
+  }
+  const md = `{--${' '.repeat(remove)}--}`;
+  return {
+    text: splice(text, range.start, range.end, md),
+    caret: carry(caret, range.start, range.end, md.length),
+    coalesce: null,
+  };
+}
+
+export const indentListItem = (text, caret) => changeIndent(text, caret, 2);
+export const outdentListItem = (text, caret) => changeIndent(text, caret, -2);
+
 /** Set the heading level of the block at the caret. Level 0 makes it body text. */
 export function setHeadingLevel(text, caret, level) {
   const g = guard(text, caret);

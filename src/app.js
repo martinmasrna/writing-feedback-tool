@@ -257,7 +257,6 @@ export function createApp() {
   function applyResult(result) {
     if (!result) return;
     if (result.blocked) { refuse(result.blocked); return; }
-    if (result.stripped) toast('Removed CriticMarkup delimiters — they would corrupt the annotation.');
     if (store.apply(result) === 'unsafe') {
       toast('That edit would change the document underneath the annotations, so it was refused. '
         + 'This file contains CriticMarkup delimiters that are not part of an annotation — '
@@ -289,6 +288,8 @@ export function createApp() {
     reasons: reviewNextReason,
     bullet: () => runStructure((t, c) => structure.toggleBullet(t, c)),
     numbered: () => runStructure((t, c) => structure.toggleBullet(t, c, { ordered: true })),
+    indent: () => runStructure((t, c) => structure.indentListItem(t, c)),
+    outdent: () => runStructure((t, c) => structure.outdentListItem(t, c)),
     heading: (level) => runStructure((t, c) => structure.setHeadingLevel(t, c, level)),
     bold: () => runStructure((t, c) => structure.toggleEmphasis(t, pendingSelection || c, 'strong')),
     italic: () => runStructure((t, c) => structure.toggleEmphasis(t, pendingSelection || c, 'em')),
@@ -307,6 +308,7 @@ export function createApp() {
     onComposedRender: render,
     setCaret: (caret) => { store.setCaret(caret); offsets.writeSelection(caret); },
     stepInView: (offset, dir) => offsets.step(offset, dir),
+    onTab: (out) => (out ? commands.outdent() : commands.indent()),
   });
 
   attachShortcuts({

@@ -35,6 +35,7 @@ function wired(options = {}) {
     onComposedRender: () => {},
     setCaret: (c) => { seen.carets.push(c); },
     stepInView: options.stepInView,
+    onTab: options.onTab,
   });
   const fire = (inputType, extra = {}) => {
     const e = new window.InputEvent('beforeinput', { inputType, bubbles: true, cancelable: true, ...extra });
@@ -164,6 +165,14 @@ test('a plain letter is typing, not a command', () => {
   const s = shortcuts();
   s.press({ key: 'b', code: 'KeyB' });
   assert.deepEqual(s.seen, []);
+});
+
+test('Tab is handed to the list structure instead of moving focus', () => {
+  const seen = [];
+  const w = wired({ onTab: (out) => seen.push(out) });
+  assert.equal(w.key({ key: 'Tab' }).defaultPrevented, true);
+  assert.equal(w.key({ key: 'Tab', shiftKey: true }).defaultPrevented, true);
+  assert.deepEqual(seen, [false, true]);
 });
 
 /* --- arrows ---------------------------------------------------------------- */

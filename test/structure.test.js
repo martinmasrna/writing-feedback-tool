@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { toggleBullet, setHeadingLevel, toggleEmphasis } from '../src/structure.js';
+import {
+  toggleBullet, indentListItem, outdentListItem, setHeadingLevel, toggleEmphasis,
+} from '../src/structure.js';
 import { transform, parse, regionAt } from '../src/criticmarkup.js';
 import { parseBlocks } from '../src/blocks.js';
 
@@ -63,6 +65,49 @@ test('bullets operate on the caret line, not the whole paragraph', () => {
   const text = 'first line\nsecond line\n';
   const r = toggleBullet(text, at(text.indexOf('second') + 2));
   assert.equal(r.text, 'first line\n{++- ++}second line\n');
+});
+
+test('Tab nests the current list item as a tracked indentation', () => {
+  const text = '- item\n- sibling\n';
+  const r = indentListItem(text, at(3));
+  assert.equal(r.text, '{++  ++}- item\n- sibling\n');
+  assert.equal(transform(r.text, 'accepted'), '  - item\n- sibling\n');
+  assert.equal(transform(r.text, 'rejected'), text);
+  assert.equal(parseBlocks(r.text)[0].depth, 1);
+});
+
+test('Shift+Tab removes one indentation level as a tracked deletion', () => {
+  const text = '    - nested\n- sibling\n';
+  const r = outdentListItem(text, at(7));
+  assert.equal(r.text, '{--  --}  - nested\n- sibling\n');
+  assert.equal(transform(r.text, 'accepted'), '  - nested\n- sibling\n');
+  assert.equal(transform(r.text, 'rejected'), text);
+  assert.equal(parseBlocks(r.text)[0].depth, 2,
+    'the old indentation remains visible until the deletion is accepted');
+});
+
+test('Tab extends a newly inserted bullet marker instead of nesting markup', () => {
+  const added = toggleBullet('item\n', at(3));
+  const r = indentListItem(added.text, at(added.caret.start));
+  assert.equal(r.text, '{++  - ++}item\n');
+  assert.equal(transform(r.text, 'accepted'), '  - item\n');
+  assert.equal(transform(r.text, 'rejected'), 'item\n');
+});
+
+test('Tab extends a bullet created by Enter without losing its line break', () => {
+  const text = '- one\n{++\n- ++}two\n';
+  const r = indentListItem(text, at(11));
+  assert.equal(r.text, '- one\n{++\n  - ++}two\n');
+  assert.equal(transform(r.text, 'accepted'), '- one\n\n  - two\n');
+  assert.equal(transform(r.text, 'rejected'), '- one\ntwo\n');
+});
+
+test('repeated Tab presses keep extending the same indentation edit', () => {
+  const first = indentListItem('- item\n', at(3));
+  const second = indentListItem(first.text, at(first.caret.start));
+  assert.equal(second.text, '{++    ++}- item\n');
+  assert.equal(transform(second.text, 'accepted'), '    - item\n');
+  assert.equal(transform(second.text, 'rejected'), '- item\n');
 });
 
 test('structural edits refuse to touch code blocks', () => {

@@ -81,7 +81,7 @@ export function createSidebar(refs, { onReveal, onRemove, onReason }) {
     host.textContent = '';
     host.append(ta);
     ta.focus();
-    ta.select();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
 
     let done = false;
     const finish = (commit) => {
@@ -125,7 +125,14 @@ export function createSidebar(refs, { onReveal, onRemove, onReason }) {
       else if (a.type === 'com') why.textContent = a.a;
       else { why.textContent = 'no reason given — click to add'; why.className = 'why none'; }
       why.title = 'Click to edit the reason';
-      why.addEventListener('click', (e) => { e.stopPropagation(); editInPlace(a, why); });
+      why.addEventListener('click', (e) => {
+        // The textarea lives inside this same click target. Once editing has
+        // started, clicks in it must place the caret or extend a selection,
+        // rather than replace the textarea and select everything again.
+        e.stopPropagation();
+        if (e.target !== why) return;
+        editInPlace(a, why);
+      });
       main.append(why);
 
       item.append(main);

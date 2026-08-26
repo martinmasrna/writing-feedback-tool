@@ -161,6 +161,10 @@ Do not build these without being asked. They were considered and cut.
 - **Markdown beyond the closed set.** Guarded in two places, and both are needed: structural commands refuse via `structure.js`, and ordinary typing and deletion refuse via `crossesUnsupported()` in `editor.js`. Only the first existed at one point, so a selection dragged from above a code fence to below it swallowed the whole block into a substitution — the text survived, but the island vanished and the document collapsed around it. Headings, paragraphs, bold, italic, inline code, links, bullet and numbered lists, blockquotes, rules. Code fences, tables and raw HTML render as read-only islands and are edited in the Source view. Never guess at structure — a mangled code fence is worse than one you cannot edit in place.
 - Multi-file management, git integration, sync, collaboration, mobile, any backend or account.
 
+## Session close
+
+Every session ends by filing per `../hq/PROTOCOL.md` — a session note always, a queue item when Martin's judgment is the blocker.
+
 ## Git
 
 Manage git independently — stage, write clear messages, commit, and push at the end of a session without asking. This is a solo repo; commit to `main` directly. Group work into legible thematic commits rather than one catch-all, and never commit with tests failing or `dist/` out of date with `src/`.

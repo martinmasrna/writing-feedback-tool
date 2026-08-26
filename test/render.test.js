@@ -112,6 +112,16 @@ test('a code block survives being commented on', () => {
   assert.ok(screenText(r.host).includes('code here'));
 });
 
+test('vertical movement crosses rendered blank lines one at a time', () => {
+  const source = '# T\n\n\n\nBody text here.\n';
+  const r = render(source);
+  const body = source.indexOf('Body');
+  assert.equal(r.index.vertical(body, -1), body - 1);
+  assert.equal(r.index.vertical(body - 1, -1), body - 2);
+  assert.equal(r.index.vertical(body - 2, 1), body - 1);
+  assert.equal(r.index.vertical(body - 1, 1), body);
+});
+
 test('a code block survives a selection dragged across it', () => {
   // The selection is refused rather than swallowing the fence into a
   // substitution — which once left the text in the source and the island gone
@@ -126,11 +136,11 @@ test('a code block survives a selection dragged across it', () => {
 
 test('extra blank lines are drawn, so Enter never looks dead', () => {
   const one = render('A.\n\nB.\n');
-  assert.equal(one.host.querySelectorAll('p.blank-line').length, 0,
-    'one blank line is the separator and shows nothing');
+  assert.equal(one.host.querySelectorAll('p.blank-line').length, 1,
+    'the separator has an invisible landing spot');
   const three = render('A.\n\n\n\nB.\n');
-  assert.equal(three.host.querySelectorAll('p.blank-line').length, 2,
-    'every further one is space someone made on purpose');
+  assert.equal(three.host.querySelectorAll('p.blank-line').length, 3,
+    'every blank line has a landing spot');
 });
 
 test('an annotation spanning a line break yields two real blocks', () => {

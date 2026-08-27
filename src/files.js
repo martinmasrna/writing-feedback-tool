@@ -2,7 +2,9 @@
  * Getting documents in and out.
  *
  * Where the File System Access API is available the file is written back in
- * place; everywhere else this falls back to a download. Nothing leaves the page.
+ * place; everywhere else this falls back to a download. A document opened via
+ * a deep link writes back through the dev server that served it instead.
+ * Nothing leaves the machine either way.
  */
 
 const MD_TYPES = [{
@@ -53,6 +55,26 @@ export async function fetchDocument(path) {
     return { text: await res.text(), name: path.split('/').pop() };
   } catch {
     return null;
+  }
+}
+
+/**
+ * Write straight back to the path a deep-linked document was opened from,
+ * through the dev server's safelisted /save endpoint — no dialog, the same
+ * way any normal editor's Save behaves once a file's location is known.
+ * @returns {Promise<{status:'in-place'|'error', name?:string, detail?:string}>}
+ */
+export async function saveToPath(text, path) {
+  try {
+    const res = await fetch(`/save?path=${encodeURIComponent(path)}`, {
+      method: 'PUT',
+      headers: { 'content-type': 'text/plain' },
+      body: text,
+    });
+    if (!res.ok) return { status: 'error', detail: `HTTP ${res.status}` };
+    return { status: 'in-place', name: path.split('/').pop() };
+  } catch (err) {
+    return { status: 'error', detail: (err && err.message) || 'network error' };
   }
 }
 

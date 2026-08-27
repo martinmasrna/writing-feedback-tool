@@ -21,6 +21,8 @@ export function createStore() {
     saved: '',
     name: '',
     handle: null,
+    /** Absolute path on disk when opened via a deep link — saves write straight back to it. */
+    diskPath: null,
     loaded: false,
     view: 'rendered',
     /** The annotation panel, which is a place to put things rather than a document fact. */
@@ -69,11 +71,12 @@ export function createStore() {
     get state() { return state; },
     subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
 
-    load(text, name, handle) {
+    load(text, name, handle, diskPath) {
       state.text = text.replace(/\r\n?/g, '\n');   // including the lone CR of very old files
       state.saved = state.text;
       state.name = name || 'untitled.md';
       state.handle = handle || null;
+      state.diskPath = diskPath || null;
       state.loaded = true;
       state.view = 'rendered';
       state.caret = null;

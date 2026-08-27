@@ -330,8 +330,8 @@ export function createApp() {
 
   const fileInput = $('#fileInput');
 
-  function load(text, name, handle) {
-    store.load(text, name, handle);
+  function load(text, name, handle, diskPath) {
+    store.load(text, name, handle, diskPath);
     pane.scrollTop = 0;
     pendingSelection = null;
   }
@@ -345,7 +345,19 @@ export function createApp() {
   async function save() {
     const state = store.state;
     if (!state.loaded) return;
-    const result = await files.saveDocument(state.text, state.name, state.handle);
+
+    let result;
+    if (state.diskPath) {
+      result = await files.saveToPath(state.text, state.diskPath);
+      // The server refused, or isn't there any more — fall back to the
+      // picker rather than lose the save entirely.
+      if (result.status === 'error') {
+        toast(`Could not write ${state.diskPath} (${result.detail}) — falling back to the picker.`);
+        result = await files.saveDocument(state.text, state.name, state.handle);
+      }
+    } else {
+      result = await files.saveDocument(state.text, state.name, state.handle);
+    }
     if (result.status === 'cancelled') return;
     store.markSaved(result.name, result.handle);
     if (result.status === 'in-place') toast(`Saved to ${result.name}.`);

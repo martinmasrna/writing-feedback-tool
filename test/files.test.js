@@ -14,7 +14,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { installDom } from './dom.js';
-import { saveDocument, copyToClipboard } from '../src/files.js';
+import { saveDocument, saveToPath, copyToClipboard } from '../src/files.js';
 
 installDom();
 
@@ -99,6 +99,29 @@ test('an unnamed document still gets a filename', async () => {
   delete window.showSaveFilePicker;
   await saveDocument(ANNOTATED, '', null);
   assert.deepEqual(downloads, ['annotated.md']);
+});
+
+test('saveToPath PUTs the annotated source to the safelisted /save endpoint', async () => {
+  const calls = [];
+  globalThis.fetch = async (url, init) => { calls.push({ url, init }); return { ok: true }; };
+  const result = await saveToPath(ANNOTATED, '/Users/martin/Projects/Personal Brand/doc.md');
+  assert.deepEqual(result, { status: 'in-place', name: 'doc.md' });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/save?path=%2FUsers%2Fmartin%2FProjects%2FPersonal%20Brand%2Fdoc.md');
+  assert.equal(calls[0].init.method, 'PUT');
+  assert.equal(calls[0].init.body, ANNOTATED, 'the annotated source, exactly');
+});
+
+test('a /save that refuses is reported, not thrown', async () => {
+  globalThis.fetch = async () => ({ ok: false, status: 403 });
+  const result = await saveToPath(ANNOTATED, '/etc/passwd');
+  assert.deepEqual(result, { status: 'error', detail: 'HTTP 403' });
+});
+
+test('no server reachable at all is reported the same way', async () => {
+  globalThis.fetch = async () => { throw new Error('fetch failed'); };
+  const result = await saveToPath(ANNOTATED, '/Users/martin/Projects/Personal Brand/doc.md');
+  assert.deepEqual(result, { status: 'error', detail: 'fetch failed' });
 });
 
 test('copying puts the annotated source on the clipboard', async () => {

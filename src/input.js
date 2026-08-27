@@ -67,6 +67,15 @@ export function attachInput(doc, { read, apply, getText, getView, canEdit, undo,
       onTab(e.shiftKey);
       return;
     }
+    // Up/Down is a layout question — which line is below this pixel. Chrome's
+    // own key handling answers it unreliably around an empty block (a bullet,
+    // the invisible blank-line separator): the same keystroke, on a page with
+    // none of this app's code running, has been seen to land correctly, skip
+    // the block, or drop the caret out of the editable region entirely. So
+    // Up/Down is driven by hand too, but via the browser's own layout
+    // (`offsets.vertical`, using `caretRangeFromPoint`) rather than either
+    // trusting the native key handling or reimplementing line-splitting by
+    // counting `\n` characters, which is blind to word-wrap.
     const vertical = e.key === 'ArrowUp' || e.key === 'ArrowDown';
     if (!vertical && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
     if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;   // word/line/selection: leave alone

@@ -397,6 +397,3 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 
 /* Deliberate empty space someone made with Enter. */
 #doc.rendered .blank-line{min-height:1.65em;margin:0 0 1em}
-/* The first separator already gets its height from neighbouring blocks. Keep
-   its mapped text node without adding another visible gap. */
-#doc.rendered .blank-line.separator{height:0;min-height:0;margin:0;line-height:0}

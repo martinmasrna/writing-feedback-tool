@@ -183,7 +183,7 @@ test('an arrow asks the rendered view first, since it knows what is on screen', 
   assert.deepEqual(w.seen.carets, [{ start: 9, end: 9 }]);
 });
 
-test('vertical arrows ask the rendered view for a line-aware destination', () => {
+test('vertical arrows ask the rendered view for a layout-aware destination', () => {
   const calls = [];
   const w = wired({
     selection: { start: 5, end: 5 },

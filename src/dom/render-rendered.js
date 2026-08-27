@@ -283,18 +283,18 @@ export function buildRendered(source) {
   let blankRun = 0;
 
   for (const block of blocks) {
-    // Keep a real, mapped landing spot for every blank line. The first one is
-    // visually collapsed because its spacing is already represented by the
-    // surrounding block margins, but it still needs to be addressable for
-    // vertical navigation.
+    // One blank line between two blocks is the separator and shows nothing.
+    // Every further one is deliberate space someone made, and has to appear —
+    // otherwise pressing Enter looks like it did nothing at all.
     if (block.type === 'blank') {
       blankRun++;
-      const spacer = el('p', 'blank-line');
-      if (blankRun === 1) spacer.classList.add('separator');
-      const node = document.createTextNode('');
-      spacer.append(node);
-      mappings.push({ node, start: toSource(visible, block.start) });
-      (stack.length ? stack[stack.length - 1].node : frag).append(spacer);
+      if (blankRun > 1) {
+        const spacer = el('p', 'blank-line');
+        const node = document.createTextNode('');
+        spacer.append(node);
+        mappings.push({ node, start: toSource(visible, block.start) });
+        (stack.length ? stack[stack.length - 1].node : frag).append(spacer);
+      }
       continue;
     }
     blankRun = 0;

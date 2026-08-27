@@ -11,7 +11,7 @@
  * six source characters apart and adjacent on the page.
  */
 
-import { toSource, toVisibleOffset } from '../visible.js';
+import { toVisibleOffset } from '../visible.js';
 
 const isVirtual = (node) => {
   const el = node.nodeType === 1 ? node : node.parentElement;
@@ -20,6 +20,11 @@ const isVirtual = (node) => {
 const isAtomic = (node) => {
   const el = node.nodeType === 1 ? node : node.parentElement;
   return !!(el && el.closest('[contenteditable="false"]'));
+};
+/** The block-level element (paragraph, list item, heading, ...) a node sits in. */
+const blockOf = (node) => {
+  const el = node.nodeType === 1 ? node : node.parentElement;
+  return el && el.closest('[data-block]');
 };
 
 function textWalker(root) {
@@ -159,9 +164,10 @@ export function createOffsetIndex(root) {
      * when every character is addressable (the source view) and plain stepping
      * will do.
      *
-     * The rendered view has to step over its mapped blank-line landing spots as
-     * well as ordinary text. Walking the rendered positions keeps left/right
-     * movement consistent with the source offsets behind the markup.
+     * The rendered view leaves whole stretches of source unaddressable: the
+     * blank line between two blocks is structure, not text, so no node holds
+     * it. Stepping onto one of those offsets snaps straight back and the arrow
+     * key appears dead. So we walk the positions that exist instead.
      */
     step(offset, dir) {
       if (!mapped) return null;
@@ -181,28 +187,75 @@ export function createOffsetIndex(root) {
       return best;
     },
 
-    /** Move one rendered line vertically, including blank Markdown lines. */
-    vertical(offset, dir) {
-      if (!mapped || !visible) return null;
-      const text = visible.text;
-      const at = toVisibleOffset(visible, offset);
-      const starts = [0];
-      for (let i = 0; i < text.length; i++) {
-        if (text.charAt(i) === '\n') starts.push(i + 1);
+    /**
+     * Move the caret one real rendered line vertically, or null when there is
+     * nowhere to go.
+     *
+     * Chrome's own ArrowUp/ArrowDown key handling is unreliable around an
+     * empty block — an empty bullet, or the deliberately-invisible blank-line
+     * separator between two paragraphs. Verified on a page with none of this
+     * app's code running at all: the identical keystroke, repeated, has been
+     * seen to land correctly, to skip the empty block entirely, and to drop
+     * the caret out of the editable region altogether — a real, present
+     * Chromium bug, not something caused by our markup or CSS.
+     *
+     * So Up/Down is driven by hand, the same way Left/Right already is — but
+     * unlike a tried-and-reverted approach that counted `\n` characters in the
+     * visible text to find "the next line" (blind to word-wrap: a wrapped
+     * paragraph has none), this asks the browser's own layout directly.
+     * `caretRangeFromPoint` walks real line boxes, wrapped paragraphs
+     * included, because it is the same hit-testing a click uses — it just
+     * never touches the native key handling that is the actual unreliable
+     * part.
+     *
+     * How far past the current line is a real question, not a constant: a
+     * collapsed range's own rect is font-metric tall (the glyph box), not the
+     * block's CSS line-height, so it is far shorter than the actual gap
+     * crossing into a bullet or a paragraph above one — stepping by half of
+     * it lands back in the line just left. So this walks outward a few
+     * pixels at a time. It is not enough to stop at the first *different
+     * offset*, either — a hit-test a few pixels up can resolve to a
+     * different column of the very same line (an empty bullet's own text
+     * lands at the very start of the paragraph below it, offset different,
+     * line the same), so a candidate still inside the block just left only
+     * counts once its own rect genuinely clears that line. A candidate in a
+     * *different* block is accepted on sight instead of by that same rect
+     * check, because an empty block's own rect is exactly as degenerate as
+     * the thing being walked past — the block boundary is the trustworthy
+     * signal there, not the geometry.
+     */
+    vertical(dir) {
+      if (!mapped || typeof document.caretRangeFromPoint !== 'function') return null;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return null;
+      const range = sel.getRangeAt(0).cloneRange();
+      range.collapse(true);
+      const rects = range.getClientRects();
+      const rect = rects.length ? rects[0] : range.getBoundingClientRect();
+      if (!rect || (rect.width === 0 && rect.height === 0)) return null;
+
+      const originBlock = blockOf(range.startContainer);
+      const x = rect.left;
+      const edgeY = dir < 0 ? rect.top : rect.bottom;
+      const STEP = 4, MAX = 400;
+      for (let d = STEP; d <= MAX; d += STEP) {
+        const point = document.caretRangeFromPoint(x, edgeY + dir * d);
+        if (!point || !root.contains(point.startContainer)) continue;
+
+        if (blockOf(point.startContainer) === originBlock) {
+          const pr = document.createRange();
+          pr.setStart(point.startContainer, point.startOffset);
+          pr.collapse(true);
+          const prRects = pr.getClientRects();
+          const prRect = prRects.length ? prRects[0] : pr.getBoundingClientRect();
+          const crossedLine = dir < 0 ? prRect.bottom <= rect.top + 0.5 : prRect.top >= rect.bottom - 0.5;
+          if (!crossedLine) continue;
+        }
+
+        const offset = this.pointToSource(point.startContainer, point.startOffset);
+        if (offset !== null) return offset;
       }
-
-      let line = 0;
-      for (let i = 1; i < starts.length && starts[i] <= at; i++) line = i;
-      const targetLine = line + dir;
-      if (targetLine < 0 || targetLine >= starts.length) return null;
-
-      const currentStart = starts[line];
-      const currentEnd = line + 1 < starts.length ? starts[line + 1] - 1 : text.length;
-      const targetStart = starts[targetLine];
-      const targetEnd = targetLine + 1 < starts.length ? starts[targetLine + 1] - 1 : text.length;
-      const column = Math.max(0, Math.min(at - currentStart, currentEnd - currentStart));
-      const target = targetStart + Math.min(column, targetEnd - targetStart);
-      return target >= text.length ? visible.sourceLength : toSource(visible, target);
+      return null;
     },
 
     /** The current selection as source offsets, or null if it is not in the document. */

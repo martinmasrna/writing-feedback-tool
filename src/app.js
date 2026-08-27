@@ -308,7 +308,7 @@ export function createApp() {
     onComposedRender: render,
     setCaret: (caret) => { store.setCaret(caret); offsets.writeSelection(caret); },
     stepInView: (offset, dir, axis) => axis === 'vertical'
-      ? offsets.vertical(offset, dir)
+      ? offsets.vertical(dir)
       : offsets.step(offset, dir),
     onTab: (out) => (out ? commands.outdent() : commands.indent()),
   });

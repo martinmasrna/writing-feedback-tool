@@ -12,6 +12,17 @@ reports. Most of the checks already exist as test helpers in `test/dom.js`.
 
 ## Known gaps, unfixed
 
+- **`offsets.vertical()` has no automated coverage at all.** It drives Up/Down
+  by hand using `caretRangeFromPoint`, because Chrome's own key handling is
+  unreliable around an empty block — verified on a page with none of this
+  app's code running: the same keystroke lands correctly, skips the block, or
+  drops the caret out of the editable region entirely, depending on the try.
+  `document.caretRangeFromPoint` and real layout don't exist in jsdom, so
+  `npm test` cannot exercise any of it — every case (into and out of an empty
+  bullet, across a wrapped paragraph, skipping the invisible blank-line
+  separator) was checked by hand in a real browser, not by a test. A
+  regression here would not be caught by `npm test`.
+
 - **Untested in a browser at all:** IME composition, Shift+Arrow selection (left
   to the browser deliberately), the reason prompt in the rendered view since the
   refactors, and save-in-place through the File System Access API, which needs a

@@ -5,6 +5,7 @@
  */
 
 import { KINDS, hasReason } from '../criticmarkup.js';
+import { autoGrow } from './autosize.js';
 
 const truncate = (s, n) => {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -80,6 +81,7 @@ export function createSidebar(refs, { onReveal, onRemove, onReason }) {
     ta.placeholder = 'Why this edit?';
     host.textContent = '';
     host.append(ta);
+    autoGrow(ta);
     ta.focus();
     ta.setSelectionRange(ta.value.length, ta.value.length);
 

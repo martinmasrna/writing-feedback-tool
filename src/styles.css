@@ -156,7 +156,7 @@ main:not(.side-off) .sep-side{display:none}
 .item .why.none{color:var(--ink-3);font-style:italic}   /* a prompt, not a fault */
 .item .del-btn{align-self:start;opacity:0;padding:2px 6px;line-height:1;font-size:14px;color:var(--ink-3)}
 .item:hover .del-btn,.del-btn:focus-visible{opacity:1}
-.item textarea{font-size:12px;line-height:1.5;margin-top:2px}
+.item textarea{font-size:12px;line-height:1.5;margin-top:2px;resize:none;max-height:200px;overflow-y:auto}
 
 /* ---------- inline criticmarkup ---------- */
 .ann{border-radius:4px;transition:box-shadow .25s ease}
@@ -204,7 +204,7 @@ label{display:flex;align-items:baseline;gap:6px;font-size:11.5px;font-weight:600
   letter-spacing:.02em;margin-bottom:5px;color:var(--ink-2)}
 label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 .field{margin-bottom:11px}
-.field textarea{font-family:var(--mono);font-size:12.5px;line-height:1.5}
+.field textarea{font-family:var(--mono);font-size:12.5px;line-height:1.5;resize:none;max-height:200px;overflow-y:auto}
 .dlg-foot{display:flex;justify-content:flex-end}
 
 /* ---------- empty state ---------- */

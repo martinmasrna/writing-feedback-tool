@@ -9,6 +9,7 @@
  */
 
 import { KINDS } from '../criticmarkup.js';
+import { autoGrow } from './autosize.js';
 
 const FORMS = {
   sub: { title: 'Replace', textLabel: 'Replacement text', reasonLabel: 'Reason', needsText: true },
@@ -26,6 +27,11 @@ export function createDialog(refs, { onAnnotate, onReason, onDismiss }) {
   let mode = null;      // 'sub' | 'del' | 'hl' | 'reason'
   let context = null;   // {selection} for forms, {annotation, returnCaret} for the prompt
 
+  // One listener per field for the dialog's whole life — set up once, not
+  // per open(), or every reopen would stack another 'input' handler on top.
+  const fitReason = autoGrow(refs.reason);
+  const fitText = autoGrow(refs.text);
+
   function place(rect) {
     const w = refs.dialog.offsetWidth;
     const h = refs.dialog.offsetHeight;
@@ -42,6 +48,12 @@ export function createDialog(refs, { onAnnotate, onReason, onDismiss }) {
     refs.scrim.hidden = false;
     refs.scrim.classList.toggle('bare', !!bare);
     refs.dialog.hidden = false;
+    // scrollHeight only means anything once the dialog has a layout box, so
+    // this can't run until after `hidden` comes off — and it has to run
+    // before place() measures the dialog, or placement uses the field's old,
+    // pre-fill height.
+    fitReason();
+    fitText();
     place(rect || { left: window.innerWidth / 2, top: 200, bottom: 220, width: 0, height: 0 });
     refs.reason.focus();
   }

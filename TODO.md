@@ -12,6 +12,33 @@ reports. Most of the checks already exist as test helpers in `test/dom.js`.
 
 ## Known gaps, unfixed
 
+- **The caret is drawn in the wrong place right after a structural edit
+  creates a new empty block** — pressing Enter inside a list item to open a
+  new bullet, most visibly. `Selection`/`Range` genuinely holds the correct
+  position (the new empty bullet — confirmed by reading `window.getSelection()`
+  directly, and typing lands there correctly), but Chrome paints the blinking
+  caret at the end of the block just left instead. Not a timing race — forcing
+  a reflow and deferring the `Range` to the next animation frame before
+  drawing it were both tried and neither changed anything. The likely cause:
+  `getClientRects()` returns nothing for a collapsed range in a genuinely
+  empty text node (confirmed directly — zero rects, a zeroed
+  `getBoundingClientRect()`) even though the block around it has completely
+  normal layout, because there is no text run there for Chrome to measure or
+  paint against. The one fix that would attack this at the root — giving
+  every empty landing spot a real character (a zero-width space) instead of
+  an empty text node — was not attempted: `offsets.js`'s whole address system
+  assumes a landing spot is zero source characters mapped to one screen point,
+  and every place that assumption holds (`step()`, `pointToSource()`,
+  `sourceToPoint()`, `vertical()`'s own block-boundary fallback) would need
+  re-checking against a landing spot that is one real character instead. Real
+  work, not a quick patch, and risks the same class of caret corruption this
+  whole file exists to prevent.
+
+  Everything downstream is already correct despite the wrong paint: arrow
+  keys and typing operate on the real `Selection`, not the pixel it's drawn
+  at, so the result matches the model — it's just confusing to watch, since
+  the *next* keystroke visibly jumps to wherever the model already was.
+
 - **`offsets.vertical()` has no automated coverage at all.** It drives Up/Down
   by hand using `caretRangeFromPoint`, because Chrome's own key handling is
   unreliable around an empty block — verified on a page with none of this

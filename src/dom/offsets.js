@@ -230,11 +230,18 @@ export function createOffsetIndex(root) {
       if (!sel || !sel.rangeCount) return null;
       const range = sel.getRangeAt(0).cloneRange();
       range.collapse(true);
+      const originBlock = blockOf(range.startContainer);
       const rects = range.getClientRects();
-      const rect = rects.length ? rects[0] : range.getBoundingClientRect();
+      let rect = rects.length ? rects[0] : range.getBoundingClientRect();
+      // getClientRects() measures text runs, and a genuinely empty landing-spot
+      // text node — an empty bullet, an empty paragraph — has none to report,
+      // even though the block around it is laid out normally. Ask the block
+      // itself where it is instead of giving up on the whole move.
+      if (!rect || (rect.width === 0 && rect.height === 0)) {
+        rect = originBlock && originBlock.getBoundingClientRect();
+      }
       if (!rect || (rect.width === 0 && rect.height === 0)) return null;
 
-      const originBlock = blockOf(range.startContainer);
       const x = rect.left;
       const edgeY = dir < 0 ? rect.top : rect.bottom;
       const STEP = 4, MAX = 400;

@@ -34,6 +34,28 @@ test('backspace at the top of a block joins it to the one above', () => {
   assertReversible(assert, ed);
 });
 
+test('backspacing a bullet split by Enter back together shrinks the insertion, it does not refuse', () => {
+  // Splitting "new bullet" with Enter writes the second marker into the same
+  // still-open insertion: `- {++new \n- bullet++}`. Backspace once removes
+  // that marker (an ordinary block-marker deletion, unrelated to this bug),
+  // landing on `- {++new \nbullet++}`; backspace again has to join the two
+  // lines by removing a newline that sits entirely inside that insertion —
+  // which used to refuse outright, as if it were nesting a new change inside
+  // an old, finished one.
+  const ed = editor('- \n').caretAfter('- ').type('new bullet');
+  ed.caretAt(ed.caret.start - 6).press('Enter');
+  assert.equal(ed.source, '- {++new \n- bullet++}\n');
+
+  ed.press('Backspace');
+  assert.equal(ed.last.kind, 'changed');
+  assert.equal(ed.source, '- {++new \nbullet++}\n');
+
+  ed.press('Backspace');
+  assert.equal(ed.last.kind, 'changed', 'the join must not be refused as a nested annotation');
+  assert.equal(ed.source, '- {++new bullet++}\n', 'back to exactly the one insertion typing it made');
+  assertReversible(assert, ed);
+});
+
 test('deleting a word and typing it back leaves nothing behind', () => {
   const ed = editor('## Summary\n\nBody.\n');
   ed.select('ary').press('Backspace');

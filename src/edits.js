@@ -16,7 +16,7 @@
  */
 
 import {
-  parse, tokenize, regionAt, annStartingAt, annEndingAt, overlapping, plainRun,
+  parse, tokenize, regionAt, annStartingAt, annEndingAt, overlapping, openBody, plainRun,
   bodyStart, bodyEnd, newStart, newEnd, sanitize, wellFormed, markup, reasonMd, originalOf, transform,
 } from './criticmarkup.js';
 
@@ -145,6 +145,24 @@ export function insert(text, sel, str) {
 export function deleteRange(text, sel, dir = 'back') {
   if (sel.end <= sel.start) return null;
   const anns = parse(text);
+
+  // A range that never leaves an insertion still being typed is erasing your
+  // own draft, exactly as backspacing one character of it already does — not
+  // a deletion to track. Without this, joining two blocks back together after
+  // Enter split a fresh bullet in two refuses outright: the join range sits
+  // entirely inside the one insertion Enter just wrote.
+  const open = openBody(anns, sel.start, sel.end);
+  if (open) {
+    if (sel.start === open.from && sel.end === open.to) {
+      // Emptying it removes the annotation — an insertion disappears, and a
+      // substitution falls back to the deletion it started as.
+      const tail = open.a.ctok ? `{>>${open.a.ctok.a}<<}` : '';
+      const md = open.sub ? `{--${open.a.a}--}${tail}` : '';
+      return { text: splice(text, open.a.start, open.a.end, md), caret: at(open.a.start), coalesce: null };
+    }
+    return { text: splice(text, sel.start, sel.end, ''), caret: at(sel.start), coalesce: null };
+  }
+
   const blocked = overlapping(anns, sel.start, sel.end);
   if (blocked) return { blocked };
   if (!wellFormed(markup('del', text.slice(sel.start, sel.end), '', ''))) return { blocked: { kind: 'delimiter' } };

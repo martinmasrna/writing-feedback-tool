@@ -102,6 +102,27 @@ test('Tab extends a bullet created by Enter without losing its line break', () =
   assert.equal(transform(r.text, 'rejected'), '- one\ntwo\n');
 });
 
+test('Tab indents a list item whose insertion holds more than just its marker', () => {
+  // Splitting a fresh `{++new bullet++}` with Enter writes the second marker
+  // into the same still-open insertion, trailing content included:
+  // `{++new \n- bullet++}`. That no longer matches "the insertion is nothing
+  // but the marker", so the case above does not fire — Tab has to recognise
+  // the indentation point is still inside an open insertion by itself.
+  const text = '- {++new \n- bullet++}\n';
+  const r = indentListItem(text, at(text.indexOf('bullet') - 2));
+  assert.equal(r.text, '- {++new \n  - bullet++}\n');
+  assert.equal(transform(r.text, 'accepted'), '- new \n  - bullet\n');
+  assert.equal(transform(r.text, 'rejected'), '- \n');
+});
+
+test('Shift+Tab outdents it back, shrinking the same insertion in reverse', () => {
+  const indented = '- {++new \n  - bullet++}\n';
+  const r = outdentListItem(indented, at(indented.indexOf('bullet') - 2));
+  assert.equal(r.text, '- {++new \n- bullet++}\n');
+  assert.equal(transform(r.text, 'accepted'), '- new \n- bullet\n');
+  assert.equal(transform(r.text, 'rejected'), '- \n');
+});
+
 test('repeated Tab presses keep extending the same indentation edit', () => {
   const first = indentListItem('- item\n', at(3));
   const second = indentListItem(first.text, at(first.caret.start));

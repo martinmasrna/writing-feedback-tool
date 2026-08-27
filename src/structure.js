@@ -15,7 +15,7 @@
  */
 
 import { blockFor } from './blocks.js';
-import { parse, regionAt, overlapping } from './criticmarkup.js';
+import { parse, regionAt, overlapping, openBody } from './criticmarkup.js';
 import { toVisible, toSource, toVisibleOffset, toSourceRange } from './visible.js';
 
 const splice = (text, a, b, ins) => text.slice(0, a) + ins + text.slice(b);
@@ -276,7 +276,16 @@ function changeIndent(text, caret, delta) {
 
   if (delta > 0) {
     const at = toSource(visible, from);
-    if (regionAt(anns, at).kind !== 'plain') return { blockedReason: 'markup' };
+    const region = regionAt(anns, at);
+    // The indentation point sits inside an insertion still being typed — the
+    // marker and whatever follows it on the same line, once Enter has split a
+    // fresh bullet in two. Widen that insertion in place, the same way typing
+    // a character there already would, rather than nesting a second one.
+    if (region.kind === 'insBody' || region.kind === 'subNew') {
+      const spaces = '  ';
+      return { text: splice(text, at, at, spaces), caret: shift(caret, at, spaces.length), coalesce: null };
+    }
+    if (region.kind !== 'plain') return { blockedReason: 'markup' };
     const md = '{++  ++}';
     return { text: splice(text, at, at, md), caret: shift(caret, at, md.length), coalesce: null };
   }
@@ -284,9 +293,30 @@ function changeIndent(text, caret, delta) {
   const remove = Math.min(2, currentIndent);
   const range = toSourceRange(visible, from, from + remove);
   const old = text.slice(range.start, range.end);
-  if (old !== ' '.repeat(remove) || overlapping(anns, range.start, range.end)) {
-    return { blockedReason: 'markup' };
+  if (old !== ' '.repeat(remove)) return { blockedReason: 'markup' };
+
+  // Same reasoning in reverse: removing indentation that is itself still just
+  // typing, not yet finished, shrinks the insertion instead of tracking a
+  // deletion against a change that isn't done being made.
+  const open = openBody(anns, range.start, range.end);
+  if (open) {
+    if (range.start === open.from && range.end === open.to) {
+      const tail = open.a.ctok ? `{>>${open.a.ctok.a}<<}` : '';
+      const md = open.sub ? `{--${open.a.a}--}${tail}` : '';
+      return {
+        text: splice(text, open.a.start, open.a.end, md),
+        caret: carry(caret, open.a.start, open.a.end, md.length),
+        coalesce: null,
+      };
+    }
+    return {
+      text: splice(text, range.start, range.end, ''),
+      caret: carry(caret, range.start, range.end, 0),
+      coalesce: null,
+    };
   }
+
+  if (overlapping(anns, range.start, range.end)) return { blockedReason: 'markup' };
   const md = `{--${' '.repeat(remove)}--}`;
   return {
     text: splice(text, range.start, range.end, md),

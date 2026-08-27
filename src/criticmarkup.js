@@ -114,6 +114,27 @@ export function overlapping(anns, start, end) {
   return anns.find((a) => start < a.end && end > a.start) || null;
 }
 
+/**
+ * The annotation whose editable body fully contains `[start,end)`, if any.
+ *
+ * Text still inside it is nothing but typing that has not settled — the same
+ * body `regionAt` already lets the caret stand in, just asked of a range
+ * instead of a point. An edit that never leaves it is reshaping a draft, not
+ * making a new change on top of one already made: `deleteBackward` shrinks a
+ * single character this way today, and a range that never crosses the body's
+ * edges deserves the identical answer, not a refusal that treats an
+ * insertion still being typed as if it were finished, unrelated markup.
+ */
+export function openBody(anns, start, end) {
+  const s = regionAt(anns, start);
+  if (s.kind !== 'insBody' && s.kind !== 'subNew') return null;
+  const e = regionAt(anns, end);
+  if (e.a !== s.a) return null;
+  const sub = s.kind === 'subNew';
+  const [from, to] = sub ? [newStart(s.a), newEnd(s.a)] : [bodyStart(s.a), bodyEnd(s.a)];
+  return { a: s.a, sub, from, to };
+}
+
 /** The widest annotation-free span containing `p`. */
 export function plainRun(anns, p) {
   let lo = 0, hi = Infinity;

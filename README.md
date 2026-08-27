@@ -30,7 +30,7 @@ typing-time one — you press Enter for room, write, delete half of it, come bac
 ten minutes later. So an unexplained edit is *marked* instead: inline, and in
 the sidebar. Hover the change — or, for a structural one, the bar in the
 margin — and an **Add a reason** pill appears over it. Click that, or the
-sidebar entry, or press ⌘⌥R to walk through everything still outstanding.
+sidebar entry.
 
 Inline, nothing is drawn for a reason at all — the rendered view puts no glyph
 of its own into the prose. The change is already on screen, so it carries both

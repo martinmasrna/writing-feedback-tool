@@ -54,7 +54,7 @@ export function buildRendered(source) {
    * commentary in the middle of the sentence under review; a mark after the
    * change was smaller but still a glyph in the prose, and the change is
    * already on screen with two free channels — its outline and its hover.
-   * The text is read in full in the sidebar, and in the dialog ⌘⌥R opens.
+   * The text is read in full in the sidebar.
    */
   function markReason(wrap, annStart, inline) {
     if (annStart === null) return;
@@ -80,7 +80,7 @@ export function buildRendered(source) {
    *
    * Only inline changes get one. A structural change is a whole block, and a
    * pill that appears whenever the pointer crosses a paragraph is in the way
-   * rather than to hand; those are explained from the sidebar or with ⌘⌥R.
+   * rather than to hand; those are explained from the sidebar instead.
    */
   function addReason(annStart) {
     const hit = chrome(el('span', 'add-reason'));

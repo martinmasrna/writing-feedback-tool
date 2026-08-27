@@ -230,15 +230,6 @@ export function createApp() {
     if (i >= 0) reveal(i);
   }
 
-  /** Walk to the next annotation still lacking a reason and offer to explain it. */
-  function reviewNextReason() {
-    const pending = store.state.anns.filter((a) => a.type !== 'com' && !hasReason(a));
-    if (!pending.length) { toast('Every annotation has a reason.'); return; }
-    const a = pending[0];
-    reveal(store.state.anns.indexOf(a));
-    dialog.openReasonPrompt(a, store.state.caret, rectOf(a));
-  }
-
   function reveal(index) {
     const a = store.state.anns[index];
     const node = doc.querySelector(`.ann[data-i="${index}"]`)
@@ -285,7 +276,6 @@ export function createApp() {
   }
 
   const commands = {
-    reasons: reviewNextReason,
     bullet: () => runStructure((t, c) => structure.toggleBullet(t, c)),
     numbered: () => runStructure((t, c) => structure.toggleBullet(t, c, { ordered: true })),
     indent: () => runStructure((t, c) => structure.indentListItem(t, c)),
@@ -370,7 +360,7 @@ export function createApp() {
     if (unexplained) {
       setTimeout(() => toast(
         `${unexplained} annotation${unexplained === 1 ? '' : 's'} still without a reason — `
-        + 'press \u2318\u2325R to work through them.'), 1200);
+        + 'add one from the sidebar.'), 1200);
     }
   }
 

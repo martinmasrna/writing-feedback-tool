@@ -121,7 +121,7 @@ function shortcuts() {
     escape: note('escape'), dialogOpen: () => false,
     commands: {
       bold: note('bold'), italic: note('italic'), bullet: note('bullet'),
-      numbered: note('numbered'), heading: note('heading'), reasons: note('reasons'),
+      numbered: note('numbered'), heading: note('heading'),
     },
   });
   const press = (init) => {

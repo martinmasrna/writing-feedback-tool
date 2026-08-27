@@ -43,8 +43,13 @@ Structure is parsed here rather than by a markdown library for one decisive reas
 
 ## What to read, and when
 
-**Read nothing up front beyond this file**, except `TODO.md` if you are picking
-up work rather than answering a question. Pull only what the task needs.
+**Read nothing up front beyond this file**, except: this project's section in
+`../PROJECTS.md` — the only place the current phase and state are recorded;
+tell whoever opened this session what you read there before building anything —
+and `TODO.md` if you are picking up work rather than answering a question. Pull
+only what the task needs. (`GATES.md` holds this project's one-way doors and
+the delivery-vs-discovery sorting; `MARTIN_NOTES.md` is Martin's scratchpad —
+read it when pointed there, never edit it.)
 
 | task | context |
 |---|---|
@@ -171,6 +176,4 @@ Every session ends by filing per `../hq/PROTOCOL.md` — a session note always, 
 
 ## Git
 
-Manage git independently — stage, write clear messages, commit, and push at the end of a session without asking. This is a solo repo; commit to `main` directly. Group work into legible thematic commits rather than one catch-all, and never commit with tests failing or `dist/` out of date with `src/`.
-
-**Always ask first** before anything hard to reverse: force-push, history rewrites (`rebase`, `reset --hard`, amending already-pushed commits), branch or tag deletion, or `git rm` of files you didn't create. When unsure whether an action is reversible, treat it as risky and ask.
+The global git rules apply (commit independently, thematic commits, ask before anything hard to reverse). Project-specific: never commit with tests failing or `dist/` out of date with `src/`.

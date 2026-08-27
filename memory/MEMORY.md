@@ -1,0 +1,1 @@
+- [Browser verification scope](browser-verification-scope.md) — ship small UI tweaks; full browser pass only for big changes or overnight work.

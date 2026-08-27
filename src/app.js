@@ -18,10 +18,14 @@ import { createControls } from './ui/controls.js';
 import { createSidebar } from './ui/sidebar.js';
 import { createToolbar } from './ui/toolbar.js';
 import { createDialog } from './ui/dialog.js';
+import { autoGrow } from './ui/autosize.js';
 import { attachInput, attachShortcuts } from './input.js';
 import * as files from './files.js';
 
 const $ = (sel) => document.querySelector(sel);
+
+/** The last two path segments — enough to tell apart same-named files from different projects. */
+const shortPath = (p) => p.split('/').slice(-2).join('/');
 
 export function createApp() {
   const doc = $('#doc');
@@ -337,6 +341,7 @@ export function createApp() {
     if (!state.loaded) return;
 
     let result;
+    let diskSaved = false;
     if (state.diskPath) {
       result = await files.saveToPath(state.text, state.diskPath);
       // The server refused, or isn't there any more — fall back to the
@@ -344,13 +349,19 @@ export function createApp() {
       if (result.status === 'error') {
         toast(`Could not write ${state.diskPath} (${result.detail}) — falling back to the picker.`);
         result = await files.saveDocument(state.text, state.name, state.handle);
+      } else {
+        diskSaved = true;
       }
     } else {
       result = await files.saveDocument(state.text, state.name, state.handle);
     }
     if (result.status === 'cancelled') return;
     store.markSaved(result.name, result.handle);
-    if (result.status === 'in-place') toast(`Saved to ${result.name}.`);
+    // Deep-linked files can share a name across projects — "Saved to GATES.md"
+    // doesn't say which one. The parent folder is enough to tell them apart
+    // without printing the whole absolute path.
+    if (diskSaved) toast(`Saved to ${shortPath(state.diskPath)}.`);
+    else if (result.status === 'in-place') toast(`Saved to ${result.name}.`);
     else if (result.status === 'linked') toast(`Saved to ${result.name}. Further saves write straight to this file.`);
     else if (result.detail) toast(`Could not write the file in place (${result.detail}) — downloaded instead.`);
     else toast(`Downloaded ${result.name || 'annotated.md'}.`);
@@ -394,6 +405,7 @@ export function createApp() {
   });
   $('#btnUndo').addEventListener('click', () => { store.undo(); doc.focus(); });
   $('#btnRedo').addEventListener('click', () => { store.redo(); doc.focus(); });
+  autoGrow($('#pasteBox'));
   $('#btnPaste').addEventListener('click', () => {
     const value = $('#pasteBox').value;
     if (!value.trim()) { toast('Paste some markdown first.'); return; }

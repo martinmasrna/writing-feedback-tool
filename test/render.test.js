@@ -168,6 +168,24 @@ test('a landing spot is real text, not chrome', () => {
   for (const spot of spots) assert.equal(isVirtual(spot.node), false);
 });
 
+test('a landing spot carries an unmapped glyph for Chrome to draw the caret against', () => {
+  // getClientRects() reports nothing for a position in a genuinely empty text
+  // node, and Chrome then paints the caret at the end of whatever precedes it
+  // instead — confirmed on a real document. The zero-width space sibling gives
+  // it something to measure, but must never become part of the document: it
+  // carries no source mapping, and a real drag or Shift+arrow selection must
+  // not be able to pick it up.
+  const r = render('- \n');
+  const li = r.host.querySelector('li');
+  const anchor = li.querySelector('.caret-anchor');
+  assert.ok(anchor, 'every landing spot gets one');
+  assert.equal(anchor.textContent, '​');
+  assert.equal(isVirtual(anchor), true, 'no source offset points at it');
+  assert.equal(anchor.getAttribute('contenteditable'), 'false', 'never typed into directly');
+  assert.equal(r.mappings.some((m) => m.node === anchor || m.node.parentElement === anchor), false,
+    'the offset index never sees it');
+});
+
 /* --- structure the renderer is responsible for ---------------------------- */
 
 test('list items group into one list, not one list each', () => {

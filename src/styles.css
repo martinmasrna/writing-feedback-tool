@@ -397,3 +397,7 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
 
 /* Deliberate empty space someone made with Enter. */
 #doc.rendered .blank-line{min-height:1.65em;margin:0 0 1em}
+/* A glyph for Chrome to draw the caret against in an otherwise-empty landing
+   spot — not a character the document has. user-select:none keeps a drag or
+   a Shift+arrow selection from ever picking it up. */
+#doc.rendered .caret-anchor{-webkit-user-select:none;user-select:none}

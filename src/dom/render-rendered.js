@@ -132,12 +132,31 @@ export function buildRendered(source) {
    * Same device as `doc-tail` and the blank-line spacers: an empty text node
    * carrying a mapping. It is *not* `data-virtual`, because unlike a bullet
    * or an island label there is a real source offset behind it.
+   *
+   * The mapped node stays genuinely empty — the address it carries has zero
+   * source characters behind it, and giving it a real one would fabricate an
+   * offset that does not exist in the document. Chrome cannot draw a caret
+   * against zero characters, though: `getClientRects()` on a position inside
+   * it comes back with nothing to measure, and the caret that should land
+   * there is instead drawn at the end of whatever precedes it — confirmed
+   * directly, on a real document, not assumed. `Selection`/`Range` hold the
+   * right position throughout; only the paint is wrong, but a caret glued to
+   * the wrong end of a bullet reads as "nothing happened" to a person
+   * watching the screen. So the mapped node gets an unmapped, invisible
+   * sibling with one real character: `data-virtual` and
+   * `contenteditable="false"`, so it carries no address, is never typed into
+   * directly, and never reaches the saved file — Chrome now has a glyph to
+   * paint the caret against, without any offset in the document ever
+   * pointing at a character that is not really there.
    */
   function landingSpot(parent, start) {
     if (start === null) return;
     const node = document.createTextNode('');
     parent.append(node);
     mappings.push({ node, start });
+    const anchor = chrome(el('span', 'caret-anchor'));
+    anchor.textContent = '​';
+    parent.append(anchor);
   }
 
   /**

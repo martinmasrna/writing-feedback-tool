@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>redline</title>
+<link rel="stylesheet" href="./src/styles.css">
+</head>
+<body>
+
+<!-- Icon geometry from Lucide (lucide.dev), ISC licensed, inlined: the page
+     ships as one file with no network and no runtime dependencies. -->
+<svg id="icons" aria-hidden="true" hidden>
+  <symbol id="i-rendered" viewBox="0 0 24 24">
+    <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/>
+    <path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+  </symbol>
+  <symbol id="i-source" viewBox="0 0 24 24">
+    <path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>
+  </symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24">
+    <path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H10"/>
+  </symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24">
+    <path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H14"/>
+  </symbol>
+  <symbol id="i-open" viewBox="0 0 24 24">
+    <path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6A2 2 0 0 1 18.46 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>
+  </symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24">
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2"/>
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+  </symbol>
+  <symbol id="i-side" viewBox="0 0 24 24">
+    <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>
+  </symbol>
+  <symbol id="i-help" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
+  </symbol>
+  <symbol id="i-save" viewBox="0 0 24 24">
+    <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/>
+    <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>
+  </symbol>
+</svg>
+
+<main>
+  <section id="docPane">
+    <div id="tools">
+      <div class="seg" id="views">
+        <button class="icon on" data-view="rendered" data-label="Rendered" aria-label="Rendered"><svg><use href="#i-rendered"/></svg></button>
+        <button class="icon" data-view="source" data-label="Source" aria-label="Source"><svg><use href="#i-source"/></svg></button>
+      </div>
+      <div class="sep"></div>
+      <button class="icon ghost" id="btnUndo" data-label="Undo ⌘Z" aria-label="Undo"><svg><use href="#i-undo"/></svg></button>
+      <button class="icon ghost" id="btnRedo" data-label="Redo ⇧⌘Z" aria-label="Redo"><svg><use href="#i-redo"/></svg></button>
+      <div class="spacer"></div>
+      <button class="icon ghost" id="btnHelp" data-label="Keyboard shortcuts" aria-label="Keyboard shortcuts" aria-expanded="false"><svg><use href="#i-help"/></svg></button>
+      <button class="icon" id="btnOpen" data-label="Open" aria-label="Open"><svg><use href="#i-open"/></svg></button>
+      <button class="icon" id="btnCopy" data-label="Copy markdown" aria-label="Copy"><svg><use href="#i-copy"/></svg></button>
+      <button class="icon primary" id="btnSave" data-label="Save ⌘S" aria-label="Save"><svg><use href="#i-save"/></svg></button>
+      <div class="sep sep-side"></div>
+      <button class="icon ghost" id="btnSide" data-label="Annotations" aria-label="Annotations"><svg><use href="#i-side"/></svg></button>
+      <div id="help" hidden>
+        <div class="keys">
+          <kbd>type</kbd><span>tracked insertion — <code>{++…++}</code></span>
+          <kbd>⌫ / ⌦</kbd><span>tracked deletion — <code>{--…--}</code></span>
+          <kbd>select + type</kbd><span>tracked replacement — <code>{~~old~&gt;new~~}</code></span>
+          <kbd>⌘B / ⌘I</kbd><span>bold / italic</span>
+          <kbd>⌘⇧8 / ⌘⇧7</kbd><span>bullet / numbered list</span>
+          <kbd>Tab / ⇧Tab</kbd><span>nest / unnest the current list item</span>
+          <kbd>⌘⌥1…6</kbd><span>heading level — <kbd>⌘⌥0</kbd> for body text</span>
+          <kbd>⌘⌥M</kbd><span>comment on the selection</span>
+          <kbd>⌘Z / ⇧⌘Z</kbd><span>undo / redo</span>
+          <kbd>⌘S</kbd><span>save</span>
+        </div>
+      </div>
+    </div>
+    <div id="doc" contenteditable="true" spellcheck="false"></div>
+    <div id="empty">
+      <div class="card">
+        <div id="drop">
+          <h1>Drop a markdown file here</h1>
+          <p>Type and delete like a normal editor.<br>Every change is tracked as CriticMarkup inside the file.</p>
+          <button class="primary" id="btnPick">Choose file…</button>
+          <div id="paste">
+            <textarea id="pasteBox" placeholder="…or paste markdown text here"></textarea>
+            <div style="display:flex;justify-content:flex-end;margin-top:8px">
+              <button id="btnPaste">Use this text</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <aside id="sidebar">
+    <div class="side-head">
+      <button class="icon ghost" id="btnSideClose" data-label="Hide annotations" aria-label="Hide annotations"><svg><use href="#i-side"/></svg></button>
+      <b>Annotations</b><span id="annCount"></span>
+    </div>
+    <div id="list"></div>
+  </aside>
+</main>
+
+<div id="toolbar" role="toolbar"></div>
+<div id="scrim" hidden></div>
+<div id="dialog" hidden role="dialog" aria-modal="true">
+  <div class="dlg-head"><b id="dlgTitle"></b><button class="ghost dlg-close" id="dlgClose"
+    type="button" title="Close (Esc)" aria-label="Close">&times;</button></div>
+  <div class="dlg-ctx" id="dlgCtx"></div>
+  <div class="field">
+    <label for="fReason"><span id="lblReason">Reason</span><span class="opt" id="reasonOpt">optional</span></label>
+    <textarea id="fReason" rows="2" placeholder="Why this edit?"></textarea>
+  </div>
+  <div class="field" id="textRow">
+    <label for="fText"><span id="lblText">Replacement text</span></label>
+    <textarea id="fText" rows="2"></textarea>
+  </div>
+  <div class="dlg-foot">
+    <button class="primary" id="dlgApply">Apply</button>
+  </div>
+</div>
+<div id="toast"></div>
+<input type="file" id="fileInput" accept=".md,.markdown,.mdown,.txt,text/markdown,text/plain" hidden>
+
+<script id="dev-guard">
+/* Development shell only — the build strips this block.
+   Opening this file from disk fails with an opaque CORS error, because
+   browsers refuse ES modules over file://. Say so plainly instead. */
+if (location.protocol === 'file:') {
+  document.addEventListener('DOMContentLoaded', function () {
+    document.body.innerHTML = '<div style="max-width:34rem;margin:18vh auto;padding:0 1.5rem;'
+      + 'font:14px/1.7 -apple-system,BlinkMacSystemFont,\'Segoe UI\',Helvetica,sans-serif;color:#17181a">'
+      + '<h1 style="font-size:15px;margin:0 0 .8em">This is the development shell.</h1>'
+      + '<p style="margin:0 0 1em;color:#4d5158">It loads ES modules, which browsers block over '
+      + '<code>file://</code>. Two ways to run redline:</p>'
+      + '<p style="margin:0 0 1em"><b>The built app</b> — one self-contained file, no server:<br>'
+      + '<code style="display:inline-block;margin-top:.4em;background:#f0eee9;padding:.3em .5em;'
+      + 'border-radius:5px">open dist/index.html</code></p>'
+      + '<p style="margin:0"><b>Live from source</b>:<br>'
+      + '<code style="display:inline-block;margin-top:.4em;background:#f0eee9;padding:.3em .5em;'
+      + 'border-radius:5px">npm run dev</code>'
+      + '<span style="color:#868a92"> &nbsp;then open http://localhost:4173/</span></p></div>';
+  });
+}
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,404 @@
+:root{
+  --paper:#faf9f7;
+  --surface:#ffffff;
+  --ink:#17181a;
+  --ink-2:#4d5158;
+  --ink-3:#868a92;
+  --line:#e5e2dc;
+  --line-2:#efedE8;
+  --ins:#116b39; --ins-bg:rgba(17,107,57,.10); --ins-ln:rgba(17,107,57,.30);
+  --del:#a5281e; --del-bg:rgba(165,40,30,.09); --del-ln:rgba(165,40,30,.30);
+  --com:#1d4ed8; --com-bg:rgba(29,78,216,.10); --com-ln:rgba(29,78,216,.30);
+  --r:7px;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--ui);font-size:13px;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+button{font-family:inherit;font-size:12.5px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);padding:5px 10px;cursor:pointer;
+  transition:background .12s ease,border-color .12s ease,color .12s ease}
+button:hover:not(:disabled){background:#f4f2ef;border-color:#d8d4cc}
+button:disabled{opacity:.38;cursor:default}
+button.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+button.primary:hover:not(:disabled){background:#2c2e33;border-color:#2c2e33}
+button.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+button.ghost:hover:not(:disabled){background:#efedE8;color:var(--ink)}
+/* Icon buttons: the label is on hover, so the bar stays a row of marks.
+   Every icon is a 24-unit Lucide outline, stroked in the button's own colour
+   so a disabled or inverted button carries its icon with it. */
+/* The sprite is a definition, not a picture: without this it lays out at an
+   SVG's default 300x150 and shoves the whole page down. */
+#icons{display:none}
+button.icon{position:relative;display:flex;align-items:center;justify-content:center;
+  width:30px;height:28px;padding:0}
+button.icon svg{width:15px;height:15px;fill:none;stroke:currentColor;
+  stroke-width:2;stroke-linecap:round;stroke-linejoin:round;pointer-events:none}
+.seg button.icon{width:34px;height:26px;border-radius:0}
+
+/* The name of the thing, said only when pointed at. */
+[data-label]::after{
+  content:attr(data-label);position:absolute;top:100%;left:50%;transform:translateX(-50%);
+  margin-top:7px;z-index:40;width:max-content;max-width:16em;
+  font-family:var(--ui);font-size:11.5px;line-height:1.45;font-weight:400;
+  color:#fff;background:var(--ink);border-radius:6px;padding:4px 8px;
+  box-shadow:0 4px 14px rgba(23,24,26,.18);
+  opacity:0;pointer-events:none;transition:opacity .12s ease;
+}
+[data-label]:hover::after,[data-label]:focus-visible::after{opacity:1}
+/* The last button has no room to its right to centre a label under. */
+#tools>button:nth-last-of-type(-n+2)::after{left:auto;right:0;transform:none}
+[data-label]:disabled::after{content:none}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+textarea,input{font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;width:100%;resize:vertical}
+textarea:focus,input:focus{outline:2px solid var(--ink);outline-offset:-1px;border-color:var(--ink)}
+
+/* ---------- header ---------- */
+.seg{display:flex;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.seg button{border:0;border-radius:0;padding:5px 9px;background:transparent;color:var(--ink-2)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--ink);color:#fff}
+.seg button.on:hover{background:var(--ink)}
+.sep{width:1px;height:20px;background:var(--line)}
+.spacer{flex:1}
+
+/* ---------- layout ---------- */
+main{display:flex;height:100%}
+#docPane{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+/* The controls ride at the top of the document's own column and stay there
+   while it scrolls. Nothing else is fixed on screen. */
+#tools{
+  position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;
+  max-width:calc(82ch + 64px);margin:0 auto;padding:14px 32px 12px;
+  background:var(--paper);
+}
+/* Text passing under the row fades out rather than being cut mid-letter. */
+#tools::after{
+  content:'';position:absolute;left:0;right:0;top:100%;height:16px;pointer-events:none;
+  background:linear-gradient(var(--paper),rgba(250,249,247,0));
+}
+/* The shortcut list, at hand rather than in the way: it opens from the row and
+   travels with it, instead of filling the screen you land on. */
+#help{
+  position:absolute;top:100%;right:32px;z-index:30;margin-top:6px;
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:13px 15px;box-shadow:0 12px 34px rgba(23,24,26,.16),0 2px 6px rgba(23,24,26,.06);
+}
+#btnHelp.on{background:#efedE8;color:var(--ink)}
+/* With the panel open the label is answering a question nobody still has. */
+#btnHelp.on::after{content:none}
+
+#btnSave.dirty::before{
+  content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;
+  border-radius:50%;background:var(--paper);
+}
+#btnSide.on{background:#efedE8;color:var(--ink)}
+/* Folded away, the panel says how much is still unexplained from the button
+   that brings it back. */
+#btnSide[data-count]::before{
+  content:attr(data-count);position:absolute;top:-3px;right:-3px;
+  min-width:15px;height:15px;padding:0 3px;border-radius:8px;
+  background:var(--ink);color:#fff;font-size:9.5px;line-height:15px;
+  font-weight:600;text-align:center;letter-spacing:0;
+}
+
+#doc{
+  max-width:calc(82ch + 64px);margin:0 auto;padding:8px 32px 55vh;
+  font-family:var(--mono);font-size:13.5px;line-height:1.75;
+  white-space:pre-wrap;overflow-wrap:break-word;tab-size:2;
+  -webkit-user-select:text;user-select:text;
+  outline:none;caret-color:var(--ink);
+}
+#doc ::selection,#doc::selection{background:rgba(23,24,26,.16)}
+
+/* The panel is the same surface as the document, on the same rhythm: its head
+   sits at the height of the controls row, and folding it happens from its own
+   corner. The row's button is how it comes back, so it only shows once the
+   panel is gone. */
+main.side-off #sidebar{display:none}
+main:not(.side-off) #btnSide,
+main:not(.side-off) .sep-side{display:none}
+#sidebar{width:334px;flex:none;border-left:1px solid var(--line);background:var(--paper);
+  display:flex;flex-direction:column}
+.side-head{display:flex;align-items:center;gap:8px;padding:14px 15px 12px;
+  font-size:12px;color:var(--ink-2)}
+.side-head b{font-weight:600}
+.side-head span{color:var(--ink-3)}
+#list{flex:1;overflow-y:auto;padding:2px 0 40px}
+.empty-side{padding:22px 16px;color:var(--ink-3);font-size:12.5px;line-height:1.6}
+
+.item{display:grid;grid-template-columns:1fr auto;gap:6px;padding:11px 12px 11px 15px;
+  cursor:pointer;transition:background .12s ease}
+/* Between the items, not under the last one: a line closing off the list is a
+   border the document side does not have. */
+.item+.item{border-top:1px solid var(--line-2)}
+.item:hover{background:#f4f2ef}
+.item .ex{font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--ink);
+  word-break:break-word;margin-bottom:5px}
+.item .ex del{color:var(--del);text-decoration-color:var(--del-ln)}
+.item .ex ins{color:var(--ins);text-decoration:none}
+.item .ex .arrow{color:var(--ink-3);padding:0 5px}
+.item .ex .sign{-webkit-user-select:none;user-select:none;font-weight:600;margin-right:6px}
+.item .ex .sign-ins{color:var(--ins)}
+.item .ex .sign-del{color:var(--del)}
+.item .ex mark.hl{background:var(--com-bg);color:var(--ink);border-radius:3px;padding:0 2px;
+  box-shadow:inset 0 -1px 0 var(--com-ln)}
+.item .why{font-size:12px;line-height:1.5;color:var(--ink-2);word-break:break-word;
+  border-radius:5px;padding:2px 4px;margin:-2px -4px;transition:background .12s ease}
+.item .why:hover{background:rgba(23,24,26,.06)}
+.item .why.none{color:var(--ink-3);font-style:italic}   /* a prompt, not a fault */
+.item .del-btn{align-self:start;opacity:0;padding:2px 6px;line-height:1;font-size:14px;color:var(--ink-3)}
+.item:hover .del-btn,.del-btn:focus-visible{opacity:1}
+.item textarea{font-size:12px;line-height:1.5;margin-top:2px;resize:none;max-height:200px;overflow-y:auto}
+
+/* ---------- inline criticmarkup ---------- */
+.ann{border-radius:4px;transition:box-shadow .25s ease}
+.ann.flash{box-shadow:0 0 0 3px rgba(23,24,26,.16)}
+.syn{opacity:.32}
+.a-ins{color:var(--ins);background:var(--ins-bg);border-radius:3px;
+  box-shadow:inset 0 -1px 0 var(--ins-ln)}
+.a-del{color:var(--del);background:var(--del-bg);border-radius:3px;text-decoration:line-through;
+  text-decoration-color:var(--del-ln)}
+.a-hl{background:var(--com-bg);border-radius:3px;box-shadow:inset 0 -1px 0 var(--com-ln)}
+.a-com{color:var(--com);background:var(--com-bg);border-radius:4px;
+  box-shadow:inset 0 0 0 1px var(--com-ln)}
+.noreason{-webkit-user-select:none;user-select:none;font-family:var(--ui);font-size:10.5px;
+  letter-spacing:.03em;text-transform:uppercase;color:var(--del);
+  border:1px dashed var(--del-ln);border-radius:4px;padding:0 4px;margin-left:3px;
+  vertical-align:1px;white-space:nowrap;cursor:pointer}
+.noreason:hover{background:var(--del-bg)}
+
+/* ---------- floating toolbar ---------- */
+#toolbar{position:fixed;z-index:40;display:none;gap:2px;padding:3px;
+  background:var(--surface);border:1px solid var(--line);border-radius:9px;
+  box-shadow:0 6px 22px rgba(23,24,26,.13),0 1px 3px rgba(23,24,26,.08)}
+#toolbar.on{display:flex}
+#toolbar button{border:0;background:transparent;padding:5px 9px;border-radius:6px;
+  display:flex;align-items:center;gap:6px}
+#toolbar button:hover{background:#f1efec}
+
+/* ---------- dialog ---------- */
+#scrim{position:fixed;inset:0;z-index:50;background:rgba(23,24,26,.08)}
+#scrim.bare{background:transparent}
+#dialog{position:fixed;z-index:60;width:396px;background:var(--surface);
+  border:1px solid var(--line);border-radius:11px;padding:14px;
+  box-shadow:0 14px 44px rgba(23,24,26,.18),0 2px 6px rgba(23,24,26,.08)}
+.dlg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.dlg-head b{font-size:13px}
+.dlg-close{font-size:16px;line-height:1;padding:2px 6px;color:var(--ink-3);margin:-2px -4px -2px 0}
+.dlg-close:hover:not(:disabled){color:var(--ink)}
+.dlg-ctx{font-family:var(--mono);font-size:11.5px;line-height:1.5;color:var(--ink-2);
+  background:var(--paper);border:1px solid var(--line-2);border-radius:6px;
+  padding:6px 8px;margin-bottom:11px;max-height:64px;overflow:auto;word-break:break-word}
+.dlg-ctx.caret{color:var(--ink-3)}
+.dlg-ctx del{color:var(--del);text-decoration-color:var(--del-ln)}
+.dlg-ctx ins{color:var(--ins);text-decoration:none}
+label{display:flex;align-items:baseline;gap:6px;font-size:11.5px;font-weight:600;
+  letter-spacing:.02em;margin-bottom:5px;color:var(--ink-2)}
+label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
+.field{margin-bottom:11px}
+.field textarea{font-family:var(--mono);font-size:12.5px;line-height:1.5;resize:none;max-height:200px;overflow-y:auto}
+.dlg-foot{display:flex;justify-content:flex-end}
+
+/* ---------- empty state ---------- */
+#empty{position:absolute;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;
+  background:var(--paper);padding:24px}
+#empty .card{width:470px;max-width:100%}
+#drop{border:1.5px dashed var(--line);border-radius:12px;padding:34px 24px;text-align:center;
+  background:var(--surface);transition:border-color .15s ease,background .15s ease}
+#drop.hot{border-color:var(--ink);background:#f4f2ef}
+#drop h1{font-size:15px;margin:0 0 5px;font-weight:600}
+#drop p{margin:0 0 16px;color:var(--ink-3);font-size:12.5px;line-height:1.6}
+#paste{margin-top:14px}
+#paste textarea{font-family:var(--mono);font-size:12px;line-height:1.5;height:96px;
+  resize:none;max-height:320px;overflow-y:auto}
+.keys{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;
+  font-size:11.5px;color:var(--ink-3);align-items:baseline}
+.keys kbd{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--surface);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px;justify-self:start;white-space:nowrap}
+
+/* ---------- toast ---------- */
+#toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,10px);z-index:70;
+  background:var(--ink);color:#fff;font-size:12.5px;line-height:1.5;padding:9px 14px;
+  border-radius:8px;max-width:520px;box-shadow:0 8px 26px rgba(23,24,26,.24);
+  opacity:0;pointer-events:none;transition:opacity .16s ease,transform .16s ease}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+
+/* ==========================================================================
+   Rendered view
+   The document reads as prose; tracked changes keep their colours, and block
+   markers that are themselves mid-change get tinted rather than hidden.
+   ========================================================================== */
+
+#doc.rendered{
+  font-family:var(--ui);font-size:15px;line-height:1.65;
+  white-space:normal;max-width:calc(72ch);
+}
+#doc.rendered h1,#doc.rendered h2,#doc.rendered h3,
+#doc.rendered h4,#doc.rendered h5,#doc.rendered h6{
+  font-weight:600;line-height:1.3;margin:1.6em 0 .5em;letter-spacing:-.01em;
+}
+#doc.rendered h1{font-size:1.75em;margin-top:0}
+#doc.rendered h2{font-size:1.35em}
+#doc.rendered h3{font-size:1.15em}
+#doc.rendered h4,#doc.rendered h5,#doc.rendered h6{font-size:1em}
+#doc.rendered p{margin:0 0 1em}
+#doc.rendered ul,#doc.rendered ol{margin:0 0 1em;padding-left:1.6em}
+#doc.rendered li{margin:.25em 0}
+#doc.rendered li::marker{color:var(--ink-3)}
+#doc.rendered blockquote{
+  margin:0 0 1em;padding-left:1em;border-left:2px solid var(--line);color:var(--ink-2);
+}
+#doc.rendered hr{border:0;border-top:1px solid var(--line);margin:1.8em 0}
+#doc.rendered code{
+  font-family:var(--mono);font-size:.88em;background:rgba(23,24,26,.05);
+  border-radius:4px;padding:.1em .35em;
+}
+#doc.rendered a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--ink-3)}
+#doc.rendered strong{font-weight:650}
+#doc.rendered .doc-tail{min-height:1em;margin:0}
+
+/* Block markers caught up in a tracked change. */
+#doc.rendered li.marker-ins::marker{color:var(--ins)}
+#doc.rendered li.marker-del::marker{color:var(--del)}
+#doc.rendered li.marker-ins,#doc.rendered li.marker-del,#doc.rendered li.marker-sub{
+  position:relative;
+}
+/* The bullet is what changed, not the prose — mark the bullet. */
+#doc.rendered li.marker-del::marker{content:'\2715  '}
+#doc.rendered li.marker-ins{background:linear-gradient(90deg,var(--ins-bg),transparent 42%);
+  border-radius:3px}
+#doc.rendered li.marker-del{background:linear-gradient(90deg,var(--del-bg),transparent 42%);
+  border-radius:3px}
+/* The bar a structural change is drawn as, and the thing you point at to
+   explain it: it reaches across the margin, though it draws only 2px of it. */
+#doc.rendered .marker-bar{
+  position:absolute;left:-1.75em;top:.15em;bottom:.15em;width:1.5em;cursor:default;
+}
+#doc.rendered .marker-bar::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;width:2px;border-radius:1px;
+}
+#doc.rendered .marker-ins.marker-bar::before{background:var(--ins)}
+#doc.rendered .marker-del.marker-bar::before{background:var(--del)}
+#doc.rendered .marker-sub.marker-bar::before{background:var(--com)}
+#doc.rendered h1.marker-ins,#doc.rendered h2.marker-ins,#doc.rendered h3.marker-ins,
+#doc.rendered h1.marker-sub,#doc.rendered h2.marker-sub,#doc.rendered h3.marker-sub,
+#doc.rendered h1.marker-del,#doc.rendered h2.marker-del,#doc.rendered h3.marker-del{
+  position:relative;
+}
+
+/* Tracked changes inline. */
+#doc.rendered .r-ins{color:var(--ins);background:var(--ins-bg);border-radius:3px;
+  box-shadow:inset 0 -1px 0 var(--ins-ln)}
+#doc.rendered .r-del{color:var(--del);background:var(--del-bg);border-radius:3px;
+  text-decoration:line-through;text-decoration-color:var(--del-ln)}
+#doc.rendered .r-hl{background:var(--com-bg);border-radius:3px;
+  box-shadow:inset 0 -1px 0 var(--com-ln)}
+/* A reason rides on the change it explains. Nothing is drawn for it: the
+   change is already on screen, and it has two channels going spare — its
+   outline, which turns dashed while a reason is still owed, and its hover,
+   which reads the reason once there is one. A mark after the change was
+   smaller than the text it replaced, but it was still a glyph in the prose. */
+#doc.rendered .r-ins.unexplained,
+#doc.rendered .r-del.unexplained,
+#doc.rendered .r-hl.unexplained{
+  outline:1px dashed currentColor;outline-offset:0;
+}
+/* A rewrite is one edit, so it is one box — round the pair, in neither half's
+   colour, with the tints inside still saying which half is which. */
+#doc.rendered .r-sub.unexplained{
+  outline:1px dashed var(--ink-3);outline-offset:1px;border-radius:3px;
+}
+#doc.rendered .r-hl.unexplained{outline-color:var(--com)}
+/* Only the inline ones: the bar in the margin is positioned already, and this
+   rule would knock it out of the margin at equal specificity. */
+#doc.rendered .r-sub,
+#doc.rendered .r-ins.unexplained,
+#doc.rendered .r-del.unexplained,
+#doc.rendered .r-hl.unexplained{position:relative}
+
+/* Hover an unexplained change and the way to explain it comes to hand. Hidden
+   and absolutely positioned, so it neither clutters the prose nor moves it.
+   The transparent padding bridges the gap to the change, or the pointer would
+   leave the one on its way to the other and the pill would vanish under it. */
+#doc.rendered .add-reason{
+  position:absolute;left:50%;bottom:100%;transform:translateX(-50%);
+  z-index:31;display:none;padding-bottom:7px;cursor:pointer;
+  -webkit-user-select:none;user-select:none;
+}
+#doc.rendered .unexplained:hover .add-reason{display:block}
+#doc.rendered .marker-bar .add-reason{left:0;transform:none}
+#doc.rendered .add-reason-pill{
+  display:block;width:max-content;
+  font-family:var(--ui);font-size:11.5px;line-height:1.45;
+  font-style:normal;font-weight:500;letter-spacing:0;text-transform:none;
+  text-align:left;text-decoration:none;color:#fff;
+  background:var(--ink);border-radius:6px;padding:4px 9px;
+  box-shadow:0 4px 14px rgba(23,24,26,.18);
+}
+#doc.rendered .add-reason:hover .add-reason-pill{background:#2c2e33}
+#doc.rendered .marker-bar.unexplained::before{
+  background-image:repeating-linear-gradient(180deg,transparent 0 2px,var(--paper) 2px 4px);
+}
+#doc.rendered .marker-bar.unexplained{cursor:pointer}
+
+/* The reason itself, on hover. */
+#doc.rendered .r-ins[data-reason],
+#doc.rendered .r-del[data-reason],
+#doc.rendered .r-hl[data-reason],
+#doc.rendered .r-sub[data-reason]{position:relative}
+#doc.rendered .r-ins[data-reason]::after,
+#doc.rendered .r-del[data-reason]::after,
+#doc.rendered .r-hl[data-reason]::after,
+#doc.rendered .r-sub[data-reason]::after,
+#doc.rendered .marker-bar[data-reason]::after{
+  content:attr(data-reason);
+  position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+  z-index:30;width:max-content;max-width:20em;
+  font-family:var(--ui);font-size:11.5px;line-height:1.45;
+  font-style:normal;font-weight:400;letter-spacing:0;text-transform:none;
+  text-align:left;text-decoration:none;color:#fff;
+  background:var(--ink);border-radius:6px;padding:5px 8px;
+  box-shadow:0 4px 14px rgba(23,24,26,.18);
+  opacity:0;pointer-events:none;transition:opacity .12s ease;
+}
+#doc.rendered .r-ins[data-reason]:hover::after,
+#doc.rendered .r-del[data-reason]:hover::after,
+#doc.rendered .r-hl[data-reason]:hover::after,
+#doc.rendered .r-sub[data-reason]:hover::after,
+#doc.rendered .marker-bar[data-reason]:hover::after{opacity:1}
+
+/* Blocks we do not fully understand: shown, not edited. */
+#doc.rendered .island{
+  position:relative;font-family:var(--mono);font-size:12.5px;line-height:1.6;
+  background:var(--surface);border:1px solid var(--line);border-radius:8px;
+  padding:1.6em .9em .8em;margin:0 0 1em;white-space:pre-wrap;overflow-x:auto;
+  color:var(--ink-2);
+}
+#doc.rendered .island-label{
+  position:absolute;top:.45em;left:.9em;font-family:var(--ui);font-size:10px;
+  letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);
+}
+#doc.rendered .island::after{
+  content:'edit in Source';position:absolute;top:.4em;right:.9em;
+  font-family:var(--ui);font-size:10px;letter-spacing:.03em;color:var(--ink-3);
+}
+
+.item .ex.ex-structural{font-family:var(--ui);font-style:italic;color:var(--ink-2)}
+.item .ex.ex-ins{color:var(--ins)}
+.item .ex.ex-del{color:var(--del)}
+.item .ex.ex-note{font-family:var(--ui);font-style:italic;color:var(--ink-3)}
+
+/* Deliberate empty space someone made with Enter. */
+#doc.rendered .blank-line{min-height:1.65em;margin:0 0 1em}
+/* A glyph for Chrome to draw the caret against in an otherwise-empty landing
+   spot — not a character the document has. user-select:none keeps a drag or
+   a Shift+arrow selection from ever picking it up. */
+#doc.rendered .caret-anchor{-webkit-user-select:none;user-select:none}

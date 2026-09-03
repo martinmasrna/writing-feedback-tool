@@ -45,3 +45,9 @@ any automated pass. Second best, and cheaper: cross two of the test layers.
 Feeding fuzz-produced documents into the render checks, and running the
 structural commands inside editing sessions instead of alone, each turned up a
 class of bug that neither layer found on its own.
+
+- Renderer: a wrapped list item's continuation line (indented, no blank
+  between) classifies as `paragraph` and renders outside the bullet
+  (`src/blocks.js` classify() is per-line). Continuation lines should
+  join their listItem. Filed 2026-09-03 from a niche-taxonomy session —
+  Martin hit it redlining LAYER0.md; workaround was unwrapping bullets.

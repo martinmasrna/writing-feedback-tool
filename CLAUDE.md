@@ -44,8 +44,7 @@ Structure is parsed here rather than by a markdown library for one decisive reas
 ## What to read, and when
 
 **Read nothing up front beyond this file**, except: this project's section in
-`../PROJECTS.md` — the only place the current phase and state are recorded;
-tell whoever opened this session what you read there before building anything —
+`../PROJECTS.md` — the only place the current phase and state are recorded — and the project's newest note in `../hq/notes/`, which says what the last session promised and left undone; tell whoever opened this session what you read there before building anything —
 and `TODO.md` if you are picking up work rather than answering a question. Pull
 only what the task needs. (`GATES.md` holds this project's one-way doors and
 the delivery-vs-discovery sorting; `MARTIN_NOTES.md` is Martin's scratchpad —

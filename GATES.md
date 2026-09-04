@@ -16,3 +16,7 @@
 **Discovery** (nobody knows the answer yet — small tries, a written question, a stop-rule):
 - Getting automated coverage for `offsets.vertical()` (Up/Down caret movement). It's driven by hand against real Chrome layout because Chrome's own key handling is unreliable and `caretRangeFromPoint` doesn't exist in jsdom — nobody currently knows a way to simulate that in a test, so this needs small cheap attempts at a testing approach, not a build task with a known shape.
 - Each round of real use: open a real document, edit it for ten minutes, see what breaks. Per TODO.md this has found sharper bugs than any automated pass — nobody knows what's still broken until Martin (or an agent) hits it, so each round is a cheap try with the verdict being whatever bug turns up, not a scheduled deliverable.
+
+## Decided by Martin, do not re-litigate
+
+Concerns Martin dismissed, one line each with the date and his verdict. An agent that wants to raise one of these checks here first; a concern on this list is mentioned again only if new evidence changes it.

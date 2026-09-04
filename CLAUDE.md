@@ -142,7 +142,7 @@ The harness now refuses a caret inside markup and skips selections buried in it,
 
 **No runtime dependencies, ever.** The page must work offline from `file://` with no network and no CDN. The two devDependencies never reach it: `esbuild` produces the single-file artifact, and `jsdom` gives the render tests a document. The build asserts the output has no external references.
 
-**Docs state the current truth, not its history.** Rewrite lines to say what is now true and delete what isn't. The path lives in git. No "SUPERSEDED" blocks, no tombstones for behaviour that changed.
+**Docs state the current truth, not its history** (global rule). The path lives in git.
 
 ## Commands
 

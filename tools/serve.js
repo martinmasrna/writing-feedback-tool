@@ -23,6 +23,8 @@ const port = Number(process.env.PORT) || 4173;
  */
 const OPEN_ROOTS = [
   resolve(homedir(), 'Projects/Personal Brand'),
+  resolve(homedir(), 'Projects/partnership'),
+  resolve(homedir(), 'Projects/Research'),
   resolve(homedir(), '.claude/knowledge'),
 ];
 const OPEN_EXTS = new Set(['.md', '.markdown', '.mdown', '.txt']);

@@ -22,8 +22,7 @@ const port = Number(process.env.PORT) || 4173;
  * dialog at all — the page never gets to choose an arbitrary path.
  */
 const OPEN_ROOTS = [
-  resolve(homedir(), 'Projects/Personal Brand'),
-  resolve(homedir(), 'Projects/partnership'),
+  resolve(homedir(), 'Projects/company'),
   resolve(homedir(), 'Projects/Research'),
   resolve(homedir(), '.claude/knowledge'),
 ];

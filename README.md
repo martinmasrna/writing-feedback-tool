@@ -42,6 +42,8 @@ npm run build
 open dist/index.html
 ```
 
+Run from source (`npm run dev`, then http://localhost:4173/) a file panel on the left lists the safelisted folders (`~/Projects/company`, `~/Projects/Research`, `~/.claude`); click a file to open it, and Save writes straight back to it. The panel needs the server, so the built file below does not have it.
+
 `dist/index.html` is a single self-contained file — no server, no account,
 no internet connection. Open it in Chrome and start editing. Where your
 browser allows it, ⌘S saves straight back to the file you opened instead of

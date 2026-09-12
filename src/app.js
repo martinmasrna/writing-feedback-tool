@@ -16,6 +16,7 @@ import { createOffsetIndex } from './dom/offsets.js';
 import { createToast } from './ui/toast.js';
 import { createControls } from './ui/controls.js';
 import { createSidebar } from './ui/sidebar.js';
+import { createFilesPanel } from './ui/files-panel.js';
 import { createToolbar } from './ui/toolbar.js';
 import { createDialog } from './ui/dialog.js';
 import { autoGrow } from './ui/autosize.js';
@@ -330,6 +331,27 @@ export function createApp() {
     pendingSelection = null;
   }
 
+  /**
+   * Open a file by its path on disk, through the dev server: the file panel and
+   * the ?open= deep link both come in here. The address bar follows, so a
+   * reload or a bookmark brings the same file back.
+   */
+  async function openPath(path) {
+    if (store.dirty() && !confirm('Open another document? Unsaved annotations will be lost.')) return false;
+    const opened = await files.fetchDocument(path);
+    if (!opened) { toast(`Could not open ${shortPath(path)}.`); return false; }
+    load(opened.text, opened.name, null, path);
+    history.replaceState(null, '', `/?open=${encodeURIComponent(path)}`);
+    return true;
+  }
+
+  const filesPanel = createFilesPanel({
+    panel: $('#files'), tree: $('#tree'), main: $('main'),
+    toggle: $('#btnFiles'), toggleSep: $('.sep-files'), close: $('#btnFilesClose'),
+  }, { onOpen: openPath });
+  filesPanel.init();
+  store.subscribe((state) => filesPanel.setCurrent(state.diskPath));
+
   async function open() {
     if (store.dirty() && !confirm('Open another document? Unsaved annotations will be lost.')) return;
     const opened = await files.openDocument(fileInput);
@@ -450,5 +472,5 @@ export function createApp() {
   });
 
   render();
-  return { store, load, save };
+  return { store, load, save, openPath };
 }

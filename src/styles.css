@@ -158,6 +158,27 @@ main:not(.side-off) .sep-side{display:none}
 .item:hover .del-btn,.del-btn:focus-visible{opacity:1}
 .item textarea{font-size:12px;line-height:1.5;margin-top:2px;resize:none;max-height:200px;overflow-y:auto}
 
+/* The file panel: the safelisted folders as a tree, served only by the dev
+   server (the built file has no server to ask, so it never appears there).
+   Same surface and rhythm as the annotation panel, on the other side. */
+main.files-off #files{display:none}
+main:not(.files-off) #btnFiles,
+main:not(.files-off) .sep-files{display:none}
+#files{width:250px;flex:none;border-right:1px solid var(--line);background:var(--paper);
+  display:flex;flex-direction:column}
+#tree{flex:1;overflow:auto;padding:2px 0 40px;font-size:12px;line-height:1.5}
+.f-row{display:flex;align-items:center;gap:5px;padding:3px 10px;cursor:pointer;
+  color:var(--ink-2);white-space:nowrap;border:0;background:transparent;width:100%;
+  text-align:left;border-radius:0;font-size:12px}
+.f-row:hover{background:#f4f2ef;color:var(--ink)}
+.f-row .f-name{overflow:hidden;text-overflow:ellipsis}
+.f-row.cur{color:var(--ink);font-weight:600;background:#efedE8}
+.f-row .chev{flex:none;width:9px;height:9px;fill:none;stroke:var(--ink-3);stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round;transition:transform .12s ease}
+.f-row.open .chev{transform:rotate(90deg)}
+.f-row.f-file .chev{visibility:hidden}
+.f-empty{padding:4px 10px 4px 32px;color:var(--ink-3);font-style:italic}
+
 /* ---------- inline criticmarkup ---------- */
 .ann{border-radius:4px;transition:box-shadow .25s ease}
 .ann.flash{box-shadow:0 0 0 3px rgba(23,24,26,.16)}

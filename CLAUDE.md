@@ -171,7 +171,7 @@ Do not build these without being asked. They were considered and cut.
 
 - **Accepting or rejecting annotations.** A different tool's job. Read-only previews of the document with every annotation applied or reverted were built and then cut: nothing acted on them, and `transform()` in `criticmarkup.js` is one call away if they are ever wanted back.
 - **Markdown beyond the closed set.** Guarded in two places, and both are needed: structural commands refuse via `structure.js`, and ordinary typing and deletion refuse via `crossesUnsupported()` in `editor.js`. Only the first existed at one point, so a selection dragged from above a code fence to below it swallowed the whole block into a substitution — the text survived, but the island vanished and the document collapsed around it. Headings, paragraphs, bold, italic, inline code, links, bullet and numbered lists, blockquotes, rules. Code fences, tables and raw HTML render as read-only islands and are edited in the Source view. Never guess at structure — a mangled code fence is worse than one you cannot edit in place.
-- Multi-file management, git integration, sync, collaboration, mobile, any backend or account.
+- Multi-file management, git integration, sync, collaboration, mobile, any backend or account. The file panel (`src/ui/files-panel.js`, served by `/roots` and `/list` in `tools/serve.js`) is a way to reach one document at a time inside the safelisted folders; it exists only under the dev server and manages nothing.
 
 ## Session close
 

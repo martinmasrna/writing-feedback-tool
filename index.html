@@ -34,6 +34,9 @@
   <symbol id="i-side" viewBox="0 0 24 24">
     <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>
   </symbol>
+  <symbol id="i-files" viewBox="0 0 24 24">
+    <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>
+  </symbol>
   <symbol id="i-help" viewBox="0 0 24 24">
     <circle cx="12" cy="12" r="10"/>
     <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>
@@ -44,9 +47,18 @@
   </symbol>
 </svg>
 
-<main>
+<main class="files-off">
+  <aside id="files" hidden>
+    <div class="side-head">
+      <button class="icon ghost" id="btnFilesClose" data-label="Hide files" aria-label="Hide files"><svg><use href="#i-files"/></svg></button>
+      <b>Files</b>
+    </div>
+    <div id="tree"></div>
+  </aside>
   <section id="docPane">
     <div id="tools">
+      <button class="icon ghost" id="btnFiles" data-label="Files" aria-label="Files" hidden><svg><use href="#i-files"/></svg></button>
+      <div class="sep sep-files" hidden></div>
       <div class="seg" id="views">
         <button class="icon on" data-view="rendered" data-label="Rendered" aria-label="Rendered"><svg><use href="#i-rendered"/></svg></button>
         <button class="icon" data-view="source" data-label="Source" aria-label="Source"><svg><use href="#i-source"/></svg></button>

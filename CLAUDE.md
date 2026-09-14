@@ -47,8 +47,7 @@ Structure is parsed here rather than by a markdown library for one decisive reas
 `../../STATUS.md` — the only place the current phase and state are recorded — and the project's open items in `../../ops/queue/`; tell whoever opened this session what you read there before building anything —
 and `TODO.md` if you are picking up work rather than answering a question. Pull
 only what the task needs. (`GATES.md` holds this project's one-way doors and
-the delivery-vs-discovery sorting; `MARTIN_NOTES.md` is Martin's scratchpad —
-read it when pointed there, never edit it.)
+the delivery-vs-discovery sorting.)
 
 | task | context |
 |---|---|

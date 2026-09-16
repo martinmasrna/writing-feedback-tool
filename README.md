@@ -42,7 +42,9 @@ npm run build
 open dist/index.html
 ```
 
-Run from source (`npm run dev`, then http://localhost:4173/) a file panel on the left lists the safelisted folders (`~/Projects/company`, `~/Projects/Research`, `~/.claude`); click a file to open it, and Save writes straight back to it. The panel needs the server, so the built file below does not have it.
+Run from source (`npm run dev`, then http://localhost:4173/) a file panel on the left lists the safelisted folders that exist on this machine (`~/Projects/company`, `~/Projects/Research`, `~/Projects/PharmaBot`, `~/.claude`); click a file to open it, and Save writes straight back to it. The panel needs the server, so the built file below does not have it.
+
+`npm run open <file.md>` does both steps for you: starts the server if it isn't running and opens that document in your browser. This is how an agent hands you a document to review.
 
 `dist/index.html` is a single self-contained file — no server, no account,
 no internet connection. Open it in Chrome and start editing. Where your
@@ -56,6 +58,7 @@ the dev version and needs `npm run dev` running to load.)
 
 ```
 npm run dev     # source version at localhost:4173
+npm run open F  # start the server if needed, open document F in the browser
 npm test        # test suite
 ```
 

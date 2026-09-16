@@ -5,8 +5,9 @@
  */
 
 import { createServer } from 'node:http';
+import { existsSync } from 'node:fs';
 import { readFile, readdir, realpath, writeFile } from 'node:fs/promises';
-import { basename, extname, join, normalize, resolve } from 'node:path';
+import { basename, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -20,12 +21,16 @@ const port = Number(process.env.PORT) || 4173;
  * editor. /save?path=<abs> (PUT) writes back to the same file, under the
  * same safelist, so a document opened this way saves in place with no
  * dialog at all — the page never gets to choose an arbitrary path.
+ *
+ * The list covers both of Martin's machines; only the folders present on
+ * this one are served.
  */
 const OPEN_ROOTS = [
-  resolve(homedir(), 'Projects/company'),
-  resolve(homedir(), 'Projects/Research'),
-  resolve(homedir(), '.claude'),
-];
+  'Projects/company',
+  'Projects/Research',
+  'Projects/PharmaBot',
+  '.claude',
+].map((p) => resolve(homedir(), p)).filter((p) => existsSync(p));
 const OPEN_EXTS = new Set(['.md', '.markdown', '.mdown', '.txt']);
 
 /**
@@ -37,7 +42,7 @@ const OPEN_EXTS = new Set(['.md', '.markdown', '.mdown', '.txt']);
  */
 async function safeTarget(path) {
   const target = await realpath(resolve(path || ''));
-  const inRoots = OPEN_ROOTS.some((r) => target === r || target.startsWith(r + '/'));
+  const inRoots = OPEN_ROOTS.some((r) => target === r || target.startsWith(r + sep));
   return inRoots && OPEN_EXTS.has(extname(target)) ? target : null;
 }
 
@@ -49,7 +54,7 @@ async function safeTarget(path) {
  */
 async function safeDir(path) {
   const target = await realpath(resolve(path || ''));
-  const inRoots = OPEN_ROOTS.some((r) => target === r || target.startsWith(r + '/'));
+  const inRoots = OPEN_ROOTS.some((r) => target === r || target.startsWith(r + sep));
   return inRoots ? target : null;
 }
 const HIDDEN = new Set(['node_modules', 'dist']);

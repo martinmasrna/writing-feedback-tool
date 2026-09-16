@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "node tools/serve.js",
+    "open": "node tools/open.mjs",
     "build": "node tools/build.js",
     "test": "node --test test/*.test.js",
     "test:watch": "node --test --watch test/*.test.js"

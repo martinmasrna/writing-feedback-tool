@@ -134,8 +134,9 @@ createServer(async (req, res) => {
     }
     return;
   }
-  const rel = normalize(decodeURIComponent(url.pathname)).replace(/^(\.\.[/\\])+/, '');
-  const path = join(root, rel === '/' ? 'index.html' : rel);
+  const pathname = decodeURIComponent(url.pathname);
+  const rel = pathname === '/' ? 'index.html' : normalize(pathname).replace(/^(\.\.[/\\])+/, '');
+  const path = join(root, rel);
   if (!path.startsWith(root)) { res.writeHead(403).end('forbidden'); return; }
   try {
     const body = await readFile(path);

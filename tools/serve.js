@@ -27,6 +27,7 @@ const port = Number(process.env.PORT) || 4173;
  */
 const OPEN_ROOTS = [
   'Projects/company',
+  'Work/company',
   'Projects/Research',
   'Projects/PharmaBot',
   '.claude',

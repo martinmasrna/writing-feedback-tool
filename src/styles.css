@@ -423,3 +423,6 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
    spot — not a character the document has. user-select:none keeps a drag or
    a Shift+arrow selection from ever picking it up. */
 #doc.rendered .caret-anchor{-webkit-user-select:none;user-select:none}
+
+/* A reference to another document: ⌘-click opens it (app.js). */
+#doc.rendered .doc-link{text-decoration:underline dotted;text-decoration-color:color-mix(in srgb,currentColor 45%,transparent);text-underline-offset:3px}

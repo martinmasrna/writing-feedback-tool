@@ -7,7 +7,7 @@
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
 import { readFile, readdir, realpath, writeFile } from 'node:fs/promises';
-import { basename, extname, join, normalize, resolve, sep } from 'node:path';
+import { basename, extname, isAbsolute, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -58,6 +58,29 @@ async function safeDir(path) {
   const inRoots = OPEN_ROOTS.some((r) => target === r || target.startsWith(r + sep));
   return inRoots ? target : null;
 }
+/**
+ * A reference as a person reads it: `~/…` from home, an absolute path as is,
+ * anything else from the referring document's folder and then each folder
+ * above it, so `VIDEOS.md` in a piece three levels down finds the project's.
+ * The walk stops at the safelist, and the answer must pass it.
+ */
+async function resolveRef(ref, from) {
+  if (!ref) return null;
+  const tries = [];
+  if (ref.startsWith('~/')) tries.push(join(homedir(), ref.slice(2)));
+  else if (isAbsolute(ref)) tries.push(ref);
+  else if (from) {
+    for (let dir = dirname(from); ; dir = dirname(dir)) {
+      tries.push(join(dir, ref));
+      if (!OPEN_ROOTS.some((r) => dir.startsWith(r + sep)) || dirname(dir) === dir) break;
+    }
+  }
+  for (const t of tries) {
+    try { const ok = await safeTarget(t); if (ok) return ok; } catch { /* not there */ }
+  }
+  return null;
+}
+
 const HIDDEN = new Set(['node_modules', 'dist']);
 /** Is there anything to open under this folder, within a few levels? A folder with nothing openable is noise in the panel. */
 async function hasOpenable(dir, depth) {
@@ -104,6 +127,12 @@ createServer(async (req, res) => {
     } catch {
       res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
     }
+    return;
+  }
+  if (url.pathname === '/resolve') {
+    const found = await resolveRef(url.searchParams.get('ref'), url.searchParams.get('from'));
+    if (found) res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }).end(found);
+    else res.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
     return;
   }
   if (url.pathname === '/roots') {

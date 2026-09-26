@@ -24,6 +24,7 @@ import { toVisible, toSource, sliceSpans } from '../visible.js';
 import { parse } from '../criticmarkup.js';
 import { parseVisibleBlocks } from '../blocks.js';
 import { parseInline } from '../inline.js';
+import { docRef } from '../doc-links.js';
 
 const el = (tag, className, text) => {
   const n = document.createElement(tag);
@@ -213,11 +214,23 @@ export function buildRendered(source) {
     });
   }
 
+  /**
+   * A reference to another document opens it on ⌘-click (Ctrl on Windows).
+   * A plain click still puts the caret there: this is an editor first.
+   */
+  function linkDoc(node, ref) {
+    if (!ref) return;
+    node.classList.add('doc-link');
+    node.dataset.ref = ref;
+    node.title = `${navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl'}-click to open ${ref}`;
+  }
+
   function renderNodes(parent, nodes) {
     for (const n of nodes) {
       if (n.type === 'text') { emit(parent, n.start, n.end); continue; }
       if (n.type === 'code') {
         const code = el('code');
+        linkDoc(code, docRef(visible.text.slice(n.contentStart, n.contentEnd)));
         emit(code, n.contentStart, n.contentEnd);
         parent.append(code);
         continue;
@@ -227,6 +240,7 @@ export function buildRendered(source) {
         a.href = n.href;
         a.title = n.href;
         a.addEventListener('click', (e) => e.preventDefault());
+        linkDoc(a, docRef(n.href));
         renderNodes(a, n.children);
         parent.append(a);
         continue;

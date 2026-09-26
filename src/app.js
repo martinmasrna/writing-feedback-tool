@@ -188,7 +188,15 @@ export function createApp() {
   });
   pane.addEventListener('scroll', () => { if (!dialog.open) toolbar.hide(); });
 
-  doc.addEventListener('click', (e) => {
+  doc.addEventListener('click', async (e) => {
+    const link = (e.metaKey || e.ctrlKey) && e.target.closest ? e.target.closest('[data-ref]') : null;
+    if (link) {
+      e.preventDefault();
+      const path = await files.resolveDocument(link.dataset.ref, store.state.diskPath);
+      if (path) window.open(`/?open=${encodeURIComponent(path)}`, '_blank');
+      else toast(`Could not find ${link.dataset.ref}.`);
+      return;
+    }
     // Two ways in, and they address their annotation differently: the source
     // view's flag by index, the rendered view's hover pill by source offset.
     // Nothing else in the rendered view is a click target — an insertion is

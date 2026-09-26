@@ -59,6 +59,19 @@ export async function fetchDocument(path) {
 }
 
 /**
+ * Where a reference written in a document points on disk, or null. Asks the
+ * dev server, which alone knows the home folder and the file system.
+ */
+export async function resolveDocument(ref, from) {
+  try {
+    const res = await fetch(`/resolve?ref=${encodeURIComponent(ref)}&from=${encodeURIComponent(from || '')}`);
+    return res.ok ? await res.text() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Write straight back to the path a deep-linked document was opened from,
  * through the dev server's safelisted /save endpoint — no dialog, the same
  * way any normal editor's Save behaves once a file's location is known.

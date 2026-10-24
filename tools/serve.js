@@ -30,6 +30,7 @@ const OPEN_ROOTS = [
   'Work/company',
   'Projects/Research',
   'Projects/PharmaBot',
+  'Work/fun/animal-kingdom',
   '.claude',
 ].map((p) => resolve(homedir(), p)).filter((p) => existsSync(p));
 const OPEN_EXTS = new Set(['.md', '.markdown', '.mdown', '.txt']);

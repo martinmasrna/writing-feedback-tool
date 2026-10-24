@@ -359,6 +359,17 @@ export function buildRendered(source) {
     return wrap;
   }
 
+  /**
+   * A block of nothing but HTML comments is drawn as nothing, the way every
+   * other markdown renderer draws it. It stays an island — same range, same
+   * guards, edited in the Source view — it just has no box. Unless a tracked
+   * change is inside it: a change must be visible, so then the box comes back.
+   */
+  const COMMENTS_ONLY = /^\s*(?:<!--[\s\S]*?-->\s*)+$/;
+  const hiddenComment = (block) => block.reason === 'html'
+    && COMMENTS_ONLY.test(visible.text.slice(block.start, block.end))
+    && !visible.spans.some((s) => s.start < block.end && s.end > block.start);
+
   const isDeleted = deletedAt(visible.spans);
   let stack = [];
   let blankRun = 0;
@@ -409,6 +420,8 @@ export function buildRendered(source) {
       frag.append(renderTable(table));
       continue;
     }
+
+    if (hiddenComment(block)) continue;
 
     if (block.type === 'unsupported') {
       const island = atomic(el('pre', `island island-${block.reason || 'other'}`));

@@ -22,7 +22,7 @@
 
 import { toVisible, toSource, sliceSpans } from '../visible.js';
 import { parse } from '../criticmarkup.js';
-import { parseVisibleBlocks } from '../blocks.js';
+import { parseVisibleBlocks, parseTable, deletedAt } from '../blocks.js';
 import { parseInline } from '../inline.js';
 import { docRef } from '../doc-links.js';
 
@@ -225,13 +225,29 @@ export function buildRendered(source) {
     node.title = `${navigator.platform.startsWith('Mac') ? '⌘' : 'Ctrl'}-click to open ${ref}`;
   }
 
-  function renderNodes(parent, nodes) {
+  /**
+   * `emit`, leaving out the visible offsets in `hide` — the backslash of an
+   * escaped pipe in a table cell, which the reader sees as a bare `|`. Not
+   * drawing a character is safe here: every node still says exactly where it
+   * came from, there is just a gap between two of them.
+   */
+  function emitShown(parent, from, to, hide) {
+    let at = from;
+    for (const h of hide || []) {
+      if (h < at || h >= to) continue;
+      emit(parent, at, h);
+      at = h + 1;
+    }
+    emit(parent, at, to);
+  }
+
+  function renderNodes(parent, nodes, hide) {
     for (const n of nodes) {
-      if (n.type === 'text') { emit(parent, n.start, n.end); continue; }
+      if (n.type === 'text') { emitShown(parent, n.start, n.end, hide); continue; }
       if (n.type === 'code') {
         const code = el('code');
         linkDoc(code, docRef(visible.text.slice(n.contentStart, n.contentEnd)));
-        emit(code, n.contentStart, n.contentEnd);
+        emitShown(code, n.contentStart, n.contentEnd, hide);
         parent.append(code);
         continue;
       }
@@ -241,12 +257,12 @@ export function buildRendered(source) {
         a.title = n.href;
         a.addEventListener('click', (e) => e.preventDefault());
         linkDoc(a, docRef(n.href));
-        renderNodes(a, n.children);
+        renderNodes(a, n.children, hide);
         parent.append(a);
         continue;
       }
       const wrap = el(n.type === 'strong' ? 'strong' : 'em');
-      renderNodes(wrap, n.children);
+      renderNodes(wrap, n.children, hide);
       parent.append(wrap);
     }
   }
@@ -312,6 +328,38 @@ export function buildRendered(source) {
     node.append(bar);
   }
 
+  /**
+   * A table island, drawn as a table.
+   *
+   * Still an island — `contenteditable="false"`, edited in the Source view —
+   * but its cells are read the way prose is: inline markdown and tracked
+   * changes alike, each text node mapped like any other. The pipes, the
+   * delimiter row and the padding never reach the screen; the table they
+   * describe does.
+   */
+  function renderTable(table) {
+    const wrap = atomic(el('div', 'table-island'));
+    const grid = el('table');
+    const row = (cells, tag) => {
+      const tr = el('tr');
+      cells.forEach((cell, i) => {
+        const td = el(tag);
+        if (table.align[i]) td.style.textAlign = table.align[i];
+        if (cell) renderNodes(td, parseInline(visible.text, cell.start, cell.end), table.escapes);
+        tr.append(td);
+      });
+      return tr;
+    };
+    const thead = el('thead');
+    thead.append(row(table.head, 'th'));
+    const tbody = el('tbody');
+    for (const cells of table.rows) tbody.append(row(cells, 'td'));
+    grid.append(thead, tbody);
+    wrap.append(grid);
+    return wrap;
+  }
+
+  const isDeleted = deletedAt(visible.spans);
   let stack = [];
   let blankRun = 0;
 
@@ -355,6 +403,12 @@ export function buildRendered(source) {
     }
 
     stack = [];
+
+    const table = block.reason === 'table' && parseTable(visible.text, block.start, block.end, isDeleted);
+    if (table) {
+      frag.append(renderTable(table));
+      continue;
+    }
 
     if (block.type === 'unsupported') {
       const island = atomic(el('pre', `island island-${block.reason || 'other'}`));

@@ -412,6 +412,22 @@ label .opt{font-weight:400;color:var(--ink-3);letter-spacing:0}
   font-family:var(--ui);font-size:10px;letter-spacing:.03em;color:var(--ink-3);
 }
 
+/* A table is an island too, but drawn as the table it describes. Read-only;
+   the way to change it is said only when pointed at. */
+#doc.rendered .table-island{position:relative;margin:0 0 1.4em}
+#doc.rendered .table-island table{border-collapse:collapse;width:100%;font-size:13.5px;line-height:1.5}
+#doc.rendered .table-island th,
+#doc.rendered .table-island td{padding:.35em .7em;border-bottom:1px solid var(--line);vertical-align:top;text-align:left;overflow-wrap:break-word}
+#doc.rendered .table-island th{font-weight:600;color:var(--ink-2);border-bottom-color:var(--ink-3)}
+#doc.rendered .table-island th:first-child,
+#doc.rendered .table-island td:first-child{padding-left:0}
+#doc.rendered .table-island::after{
+  content:'edit in Source';position:absolute;top:100%;right:0;
+  font-family:var(--ui);font-size:10px;letter-spacing:.03em;color:var(--ink-3);
+  opacity:0;transition:opacity .12s ease;
+}
+#doc.rendered .table-island:hover::after{opacity:1}
+
 .item .ex.ex-structural{font-family:var(--ui);font-style:italic;color:var(--ink-2)}
 .item .ex.ex-ins{color:var(--ins)}
 .item .ex.ex-del{color:var(--del)}

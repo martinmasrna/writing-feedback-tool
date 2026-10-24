@@ -250,6 +250,72 @@ export function parseVisibleBlocks(visibleText, spans) {
   return blocks;
 }
 
+/**
+ * The cells of a table block, for drawing it as a table.
+ *
+ * A table is still an island: nothing here makes it editable in place, and the
+ * block keeps its type, its range and every guard that comes with that. This
+ * only answers what the rendered view should draw — which visible ranges are
+ * cells, which row is the header, how each column is aligned — so the reader
+ * sees a table instead of its pipes.
+ *
+ * Offsets are visible offsets, like everything else this module returns before
+ * `parseBlocks` maps it. A cell is the trimmed text between two unescaped
+ * pipes; `escapes` lists the backslash of every `\|`, which the reader sees as
+ * a bare pipe. Null when the block is not the shape GFM gives a table — one
+ * header line, the delimiter line, then rows, with as many header cells as
+ * delimiter cells — and then it is drawn as raw source, as before. Never guess.
+ */
+export function parseTable(text, from, to, isDeleted) {
+  const lines = splitLines(text.slice(from, to), isDeleted && ((i) => isDeleted(from + i)))
+    .map((l) => ({ start: from + l.start, end: from + l.end }));
+  if (lines.length < 2 || !TABLE_DELIM.test(text.slice(lines[1].start, lines[1].end))) return null;
+
+  const escapes = [];
+  const cellsOf = ({ start, end }) => {
+    const pipes = [];
+    for (let i = start; i < end; i++) {
+      if (text.charAt(i) !== '|') continue;
+      if (text.charAt(i - 1) === '\\' && i > start) { escapes.push(i - 1); continue; }
+      pipes.push(i);
+    }
+    let s = start;
+    let e = end;
+    while (s < e && /\s/.test(text.charAt(s))) s++;
+    while (e > s && /\s/.test(text.charAt(e - 1))) e--;
+    if (pipes[0] === s) { pipes.shift(); s++; }
+    if (pipes.length && pipes[pipes.length - 1] === e - 1) { pipes.pop(); e--; }
+    const cells = [];
+    for (const edge of [...pipes, e]) {
+      let a = s;
+      let b = edge;
+      while (a < b && /\s/.test(text.charAt(a))) a++;
+      while (b > a && /\s/.test(text.charAt(b - 1))) b--;
+      cells.push({ start: a, end: b });
+      s = edge + 1;
+    }
+    return cells;
+  };
+
+  const head = cellsOf(lines[0]);
+  const delims = cellsOf(lines[1]);
+  if (head.length !== delims.length) return null;
+  const align = delims.map(({ start, end }) => {
+    const d = text.slice(start, end);
+    const left = d.startsWith(':');
+    const right = d.endsWith(':');
+    return left && right ? 'center' : right ? 'right' : left ? 'left' : null;
+  });
+  // A row with too few cells is padded, one with too many is cut, as in GFM.
+  const rows = lines.slice(2).map((line) => {
+    const cells = cellsOf(line).slice(0, head.length);
+    while (cells.length < head.length) cells.push(null);
+    return cells;
+  });
+  const inCell = (i) => [head, ...rows].some((row) => row.some((c) => c && i >= c.start && i < c.end));
+  return { align, head, rows, escapes: escapes.filter(inCell) };
+}
+
 /** Offsets on a block that must be translated from visible to source. */
 const OFFSETS = ['start', 'end', 'contentStart', 'contentEnd', 'markerStart', 'markerEnd'];
 

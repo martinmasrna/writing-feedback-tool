@@ -31,6 +31,7 @@ const OPEN_ROOTS = [
   'Projects/Research',
   'Projects/PharmaBot',
   'Work/fun/animal-kingdom',
+  'Projects/animal-kingdom',   // the same workspace on the Windows work PC
   '.claude',
 ].map((p) => resolve(homedir(), p)).filter((p) => existsSync(p));
 const OPEN_EXTS = new Set(['.md', '.markdown', '.mdown', '.txt']);
